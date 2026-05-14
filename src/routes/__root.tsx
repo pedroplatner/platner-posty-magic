@@ -11,6 +11,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  ssr: false,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
