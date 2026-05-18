@@ -60,6 +60,36 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiLegenda, setAiLegenda] = useState(false);
+  const [aiHashtags, setAiHashtags] = useState(false);
+  const callGerarLegenda = useServerFn(gerarLegenda);
+  const callGerarHashtags = useServerFn(gerarHashtags);
+
+  async function handleGerarLegenda() {
+    const tema = legenda.trim() || initialLegenda.trim();
+    if (!tema) return toast.error("Escreva um tema/ideia primeiro na legenda");
+    setAiLegenda(true);
+    try {
+      const r = await callGerarLegenda({ data: { tema, tipo } });
+      setLegenda(r.legenda);
+      toast.success("Legenda gerada");
+    } catch (e: any) {
+      toast.error(e?.message?.includes("402") ? "Sem créditos de IA na workspace" : "Falha ao gerar legenda");
+    } finally { setAiLegenda(false); }
+  }
+
+  async function handleGerarHashtags() {
+    const ctx = (legenda + " " + hashtags).trim();
+    if (!ctx) return toast.error("Escreva a legenda primeiro");
+    setAiHashtags(true);
+    try {
+      const r = await callGerarHashtags({ data: { contexto: ctx } });
+      setHashtags(r.hashtags);
+      toast.success("Hashtags geradas");
+    } catch (e: any) {
+      toast.error(e?.message?.includes("402") ? "Sem créditos de IA na workspace" : "Falha ao gerar hashtags");
+    } finally { setAiHashtags(false); }
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
