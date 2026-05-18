@@ -69,6 +69,7 @@ function AuthGate() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLogin = location.pathname === "/login";
+  useRecentErrorsToast(!!user && !loading);
 
   useEffect(() => {
     if (loading) return;
