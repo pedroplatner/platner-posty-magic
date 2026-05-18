@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram } from "@/lib/supabase";
-import { formatBR, truncate } from "@/lib/format";
+import { formatBR, truncate, nowSP, toSP } from "@/lib/format";
 import { TipoBadge } from "@/components/Badges";
 import {
   startOfMonth,
@@ -14,8 +14,7 @@ import {
   format,
   addMonths,
 } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
-import { TIMEZONE } from "@/lib/supabase";
+import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
