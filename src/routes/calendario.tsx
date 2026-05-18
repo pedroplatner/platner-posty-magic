@@ -19,7 +19,7 @@ import { TIMEZONE } from "@/lib/supabase";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/calendario")({ component: CalendarioPage });
+export const Route = createFileRoute("/calendario")({ component: CalendarioPage, ssr: false });
 
 function CalendarioPage() {
   const [posts, setPosts] = useState<PostInstagram[]>([]);
