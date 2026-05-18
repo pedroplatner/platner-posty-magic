@@ -310,14 +310,26 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2">
             <Label htmlFor="legenda">Legenda</Label>
-            <span className={cn(
-              "text-[11px]",
-              legenda.length > 2200 ? "text-destructive font-medium" : "text-muted-foreground"
-            )}>
-              {legenda.length} / 2200
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGerarLegenda}
+                disabled={aiLegenda}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                title="Gerar legenda com IA (use o tema atual)"
+              >
+                {aiLegenda ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Gerar com IA
+              </button>
+              <span className={cn(
+                "text-[11px]",
+                legenda.length > 2200 ? "text-destructive font-medium" : "text-muted-foreground"
+              )}>
+                {legenda.length} / 2200
+              </span>
+            </div>
           </div>
           <Textarea
             id="legenda"
@@ -329,19 +341,31 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2">
             <Label htmlFor="hashtags">Hashtags</Label>
-            {(() => {
-              const count = (hashtags.match(/#\w+/g) || []).length;
-              return (
-                <span className={cn(
-                  "text-[11px]",
-                  count > 30 ? "text-destructive font-medium" : "text-muted-foreground"
-                )}>
-                  {count} / 30
-                </span>
-              );
-            })()}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGerarHashtags}
+                disabled={aiHashtags}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                title="Sugerir hashtags com base na legenda"
+              >
+                {aiHashtags ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Sugerir com IA
+              </button>
+              {(() => {
+                const count = (hashtags.match(/#\w+/g) || []).length;
+                return (
+                  <span className={cn(
+                    "text-[11px]",
+                    count > 30 ? "text-destructive font-medium" : "text-muted-foreground"
+                  )}>
+                    {count} / 30
+                  </span>
+                );
+              })()}
+            </div>
           </div>
           <Textarea
             id="hashtags"
