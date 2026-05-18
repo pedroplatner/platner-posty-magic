@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, type PostStatus } from "@/lib/supabase";
 import { deleteStoragePaths } from "@/lib/storage";
 import { formatBR, truncate } from "@/lib/format";
 import { StatusBadge, TipoBadge } from "@/components/Badges";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Pencil, Trash2, Check } from "lucide-react";
+import { Pencil, Trash2, Check, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -32,7 +34,9 @@ const FILTROS: { key: "todos" | PostStatus; label: string }[] = [
 function FilaPage() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<PostInstagram[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"todos" | PostStatus>("todos");
+  const [search, setSearch] = useState("");
   const [toDelete, setToDelete] = useState<PostInstagram | null>(null);
 
   useEffect(() => {
@@ -42,6 +46,7 @@ function FilaPage() {
         .select("id,imagem_url,storage_path,legenda,data_publicacao,status,tipo_post,erro_msg,publicado_em,created_at")
         .order("data_publicacao", { ascending: true });
       setPosts((data ?? []) as unknown as PostInstagram[]);
+      setLoading(false);
     };
     load();
     const ch = supabase
@@ -51,7 +56,18 @@ function FilaPage() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  const filtered = filter === "todos" ? posts : posts.filter((p) => p.status === filter);
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { todos: posts.length };
+    posts.forEach((p) => { c[p.status] = (c[p.status] || 0) + 1; });
+    return c;
+  }, [posts]);
+
+  const filtered = useMemo(() => {
+    const byStatus = filter === "todos" ? posts : posts.filter((p) => p.status === filter);
+    const q = search.trim().toLowerCase();
+    if (!q) return byStatus;
+    return byStatus.filter((p) => (p.legenda ?? "").toLowerCase().includes(q));
+  }, [posts, filter, search]);
 
   async function handleDelete() {
     if (!toDelete) return;
@@ -84,27 +100,74 @@ function FilaPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="flex flex-wrap gap-2">
-        {FILTROS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={cn(
-              "px-4 py-1.5 text-sm rounded-full border transition-colors",
-              filter === f.key
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {FILTROS.map((f) => {
+            const n = counts[f.key] ?? 0;
+            const active = filter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={cn(
+                  "px-4 py-1.5 text-sm rounded-full border transition-colors inline-flex items-center gap-2",
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {f.label}
+                <span className={cn(
+                  "text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
+                  active ? "bg-primary-foreground/20" : "bg-secondary text-foreground/70"
+                )}>
+                  {n}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar na legenda..."
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-md hover:bg-secondary flex items-center justify-center"
+              title="Limpar"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl">
+              <Skeleton className="h-16 w-16 rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+              <Skeleton className="h-8 w-16 hidden sm:block" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl py-16 text-center">
-          <p className="text-sm text-muted-foreground mb-4">Nenhum post encontrado</p>
-          <Button onClick={() => navigate({ to: "/novo-post" })}>Criar primeiro post</Button>
+          <p className="text-sm text-muted-foreground mb-4">
+            {search ? `Nenhum post encontrado para "${search}"` : "Nenhum post encontrado"}
+          </p>
+          {!search && (
+            <Button onClick={() => navigate({ to: "/novo-post" })}>Criar primeiro post</Button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -123,7 +186,7 @@ function FilaPage() {
               )}
             >
               <div className="h-16 w-16 rounded-lg overflow-hidden bg-muted shrink-0">
-                {p.imagem_url && <img src={p.imagem_url} alt="" className="w-full h-full object-cover" />}
+                {p.imagem_url && <img src={p.imagem_url} alt="" loading="lazy" className="w-full h-full object-cover" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">

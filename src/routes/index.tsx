@@ -14,6 +14,7 @@ const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta"
 
 function Dashboard() {
   const [posts, setPosts] = useState<PostInstagram[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,6 +24,7 @@ function Dashboard() {
         .select("id,imagem_url,legenda,data_publicacao,status,tipo_post,erro_msg,publicado_em,created_at")
         .order("data_publicacao", { ascending: true });
       setPosts((data ?? []) as unknown as PostInstagram[]);
+      setLoading(false);
     };
     load();
     const ch = supabase
