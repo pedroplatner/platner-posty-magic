@@ -22,8 +22,8 @@ export const Route = createFileRoute("/calendario")({ component: CalendarioPage,
 
 function CalendarioPage() {
   const [posts, setPosts] = useState<PostInstagram[]>([]);
-  const [month, setMonth] = useState(new Date());
-  const [selected, setSelected] = useState<Date>(new Date());
+  const [month, setMonth] = useState(() => nowSP());
+  const [selected, setSelected] = useState<Date>(() => nowSP());
 
   useEffect(() => {
     const load = async () => {
@@ -51,7 +51,7 @@ function CalendarioPage() {
     const map = new Map<string, PostInstagram[]>();
     posts.forEach((p) => {
       if (!p.data_publicacao) return;
-      const d = toZonedTime(new Date(p.data_publicacao), TIMEZONE);
+      const d = toSP(p.data_publicacao);
       const key = format(d, "yyyy-MM-dd");
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
@@ -67,13 +67,13 @@ function CalendarioPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl font-semibold capitalize">
-            {format(month, "MMMM yyyy")}
+            {format(month, "MMMM yyyy", { locale: ptBR })}
           </h2>
           <div className="flex gap-1">
             <button onClick={() => setMonth(addMonths(month, -1))} className="h-8 w-8 rounded-md hover:bg-secondary flex items-center justify-center">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={() => setMonth(new Date())} className="px-3 text-xs rounded-md hover:bg-secondary">Hoje</button>
+            <button onClick={() => setMonth(nowSP())} className="px-3 text-xs rounded-md hover:bg-secondary">Hoje</button>
             <button onClick={() => setMonth(addMonths(month, 1))} className="h-8 w-8 rounded-md hover:bg-secondary flex items-center justify-center">
               <ChevronRight className="h-4 w-4" />
             </button>
