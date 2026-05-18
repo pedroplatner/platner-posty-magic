@@ -90,7 +90,7 @@ function CalendarioPage() {
             const has = postsByDay.has(key);
             const isCur = isSameMonth(d, month);
             const isSel = isSameDay(d, selected);
-            const isToday = isSameDay(d, new Date());
+            const isToday = isSameDay(d, nowSP());
             return (
               <button
                 key={d.toISOString()}
@@ -111,7 +111,7 @@ function CalendarioPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="font-display font-semibold mb-1">{format(selected, "dd 'de' MMMM")}</h3>
+        <h3 className="font-display font-semibold mb-1">{format(selected, "dd 'de' MMMM", { locale: ptBR })}</h3>
         <p className="text-xs text-muted-foreground mb-5">{selectedPosts.length} post(s)</p>
         {selectedPosts.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">Nenhum post neste dia</p>
