@@ -15,12 +15,13 @@ const titles: Record<string, string> = {
 export function AppHeader() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const title = titles[path] ?? "Platner.IG";
-  const [now, setNow] = useState<Date>(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
+    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const horario = fmtTz(now, "dd/MM/yyyy HH:mm:ss", { timeZone: TIMEZONE });
+  const horario = now ? fmtTz(now, "dd/MM/yyyy HH:mm:ss", { timeZone: TIMEZONE }) : "—";
 
   return (
     <header className="h-20 border-b border-border bg-background/80 backdrop-blur flex items-center justify-between px-8">
