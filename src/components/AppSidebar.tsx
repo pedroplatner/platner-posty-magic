@@ -15,6 +15,11 @@ const items = [
 export function AppSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
+  const { user } = useAuth();
+  async function handleLogout() {
+    await signOut();
+    toast.success("Sessão encerrada");
+  }
   return (
     <aside
       className={cn(
