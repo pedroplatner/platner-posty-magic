@@ -45,13 +45,14 @@ export function AppSidebar() {
         {items.map((it) => {
           const active = path === it.to;
           const Icon = it.icon;
+          const showBadge = "badgeKey" in it && it.badgeKey === "errors" && errorCount > 0;
           return (
             <Link
               key={it.to}
               to={it.to}
               title={collapsed ? it.label : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                 collapsed && "justify-center",
                 active
                   ? "bg-primary text-primary-foreground font-medium"
@@ -59,7 +60,18 @@ export function AppSidebar() {
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && it.label}
+              {!collapsed && <span className="flex-1">{it.label}</span>}
+              {showBadge && (
+                <span
+                  className={cn(
+                    "min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center",
+                    collapsed && "absolute top-1 right-1"
+                  )}
+                  title={`${errorCount} post(s) com erro`}
+                >
+                  {errorCount > 99 ? "99+" : errorCount}
+                </span>
+              )}
             </Link>
           );
         })}
