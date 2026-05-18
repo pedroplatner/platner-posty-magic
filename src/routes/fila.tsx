@@ -6,7 +6,7 @@ import { formatBR, truncate } from "@/lib/format";
 import { StatusBadge, TipoBadge } from "@/components/Badges";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { EditPostDialog } from "@/components/EditPostDialog";
 
 export const Route = createFileRoute("/fila")({ component: FilaPage });
 
@@ -35,7 +34,6 @@ function FilaPage() {
   const [posts, setPosts] = useState<PostInstagram[]>([]);
   const [filter, setFilter] = useState<"todos" | PostStatus>("todos");
   const [toDelete, setToDelete] = useState<PostInstagram | null>(null);
-  const [toEdit, setToEdit] = useState<PostInstagram | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -55,7 +53,6 @@ function FilaPage() {
   async function handleDelete() {
     if (!toDelete) return;
     try {
-      // get medias
       const { data: midias } = await supabase
         .from("post_midias")
         .select("storage_path")
@@ -74,6 +71,12 @@ function FilaPage() {
     } finally {
       setToDelete(null);
     }
+  }
+
+  async function approve(p: PostInstagram) {
+    const { error } = await supabase.from("posts_instagram").update({ status: "agendado" }).eq("id", p.id);
+    if (error) return toast.error(error.message);
+    toast.success("Rascunho aprovado e agendado");
   }
 
   return (
@@ -119,10 +122,15 @@ function FilaPage() {
                 <p className="text-xs text-muted-foreground">{formatBR(p.data_publicacao, "HH:mm")}</p>
               </div>
               <div className="flex gap-1 shrink-0">
-                <Button size="icon" variant="ghost" onClick={() => setToEdit(p)}>
+                {p.status === "rascunho" && (
+                  <Button size="icon" variant="ghost" title="Aprovar e agendar" onClick={() => approve(p)}>
+                    <Check className="h-4 w-4 text-success" />
+                  </Button>
+                )}
+                <Button size="icon" variant="ghost" title="Editar" onClick={() => navigate({ to: "/novo-post", search: { id: p.id, tema: "" } as any })}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => setToDelete(p)}>
+                <Button size="icon" variant="ghost" title="Excluir" onClick={() => setToDelete(p)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -147,8 +155,6 @@ function FilaPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {toEdit && <EditPostDialog post={toEdit} onClose={() => setToEdit(null)} />}
     </div>
   );
 }
