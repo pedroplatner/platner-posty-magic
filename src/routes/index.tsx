@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
-import { formatBR, truncate } from "@/lib/format";
+import { formatBR, truncate, nowSP, startOfDaySP, toSP } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
 import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check } from "lucide-react";
-import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
-import { toZonedTime, format as fmtTz } from "date-fns-tz";
+import { startOfWeek, endOfWeek } from "date-fns";
+import { format as fmtTz } from "date-fns-tz";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({ component: Dashboard, ssr: false });
@@ -35,22 +35,22 @@ function Dashboard() {
   const agendados = posts.filter((p) => p.status === "agendado").length;
   const publicados = posts.filter((p) => p.status === "publicado").length;
   const rascunhos = posts.filter((p) => p.status === "rascunho").length;
-  const wkStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const wkEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const wkStart = startOfWeek(nowSP(), { weekStartsOn: 1 });
+  const wkEnd = endOfWeek(nowSP(), { weekStartsOn: 1 });
   const semana = posts.filter((p) => {
     if (!p.data_publicacao) return false;
-    const d = new Date(p.data_publicacao);
+    const d = toSP(p.data_publicacao);
     return d >= wkStart && d <= wkEnd;
   }).length;
 
   const proximosGrouped = useMemo(() => {
-    const todayStart = startOfDay(new Date());
+    const todayStart = startOfDaySP();
     const filtered = posts
-      .filter((p) => (p.status === "agendado" || p.status === "rascunho") && p.data_publicacao && new Date(p.data_publicacao) >= todayStart)
+      .filter((p) => (p.status === "agendado" || p.status === "rascunho") && p.data_publicacao && toSP(p.data_publicacao) >= todayStart)
       .slice(0, 20);
     const groups = new Map<string, { label: string; date: Date; posts: PostInstagram[] }>();
     filtered.forEach((p) => {
-      const d = toZonedTime(new Date(p.data_publicacao!), TIMEZONE);
+      const d = toSP(p.data_publicacao!);
       const key = fmtTz(d, "yyyy-MM-dd", { timeZone: TIMEZONE });
       if (!groups.has(key)) {
         groups.set(key, { label: DIAS_SEMANA[d.getDay()], date: d, posts: [] });

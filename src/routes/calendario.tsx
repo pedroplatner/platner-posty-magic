@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram } from "@/lib/supabase";
-import { formatBR, truncate } from "@/lib/format";
+import { formatBR, truncate, nowSP, toSP } from "@/lib/format";
 import { TipoBadge } from "@/components/Badges";
 import {
   startOfMonth,
@@ -14,8 +14,7 @@ import {
   format,
   addMonths,
 } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
-import { TIMEZONE } from "@/lib/supabase";
+import { ptBR } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +22,8 @@ export const Route = createFileRoute("/calendario")({ component: CalendarioPage,
 
 function CalendarioPage() {
   const [posts, setPosts] = useState<PostInstagram[]>([]);
-  const [month, setMonth] = useState(new Date());
-  const [selected, setSelected] = useState<Date>(new Date());
+  const [month, setMonth] = useState(() => nowSP());
+  const [selected, setSelected] = useState<Date>(() => nowSP());
 
   useEffect(() => {
     const load = async () => {
@@ -52,7 +51,7 @@ function CalendarioPage() {
     const map = new Map<string, PostInstagram[]>();
     posts.forEach((p) => {
       if (!p.data_publicacao) return;
-      const d = toZonedTime(new Date(p.data_publicacao), TIMEZONE);
+      const d = toSP(p.data_publicacao);
       const key = format(d, "yyyy-MM-dd");
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
@@ -68,13 +67,13 @@ function CalendarioPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl font-semibold capitalize">
-            {format(month, "MMMM yyyy")}
+            {format(month, "MMMM yyyy", { locale: ptBR })}
           </h2>
           <div className="flex gap-1">
             <button onClick={() => setMonth(addMonths(month, -1))} className="h-8 w-8 rounded-md hover:bg-secondary flex items-center justify-center">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={() => setMonth(new Date())} className="px-3 text-xs rounded-md hover:bg-secondary">Hoje</button>
+            <button onClick={() => setMonth(nowSP())} className="px-3 text-xs rounded-md hover:bg-secondary">Hoje</button>
             <button onClick={() => setMonth(addMonths(month, 1))} className="h-8 w-8 rounded-md hover:bg-secondary flex items-center justify-center">
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -91,7 +90,7 @@ function CalendarioPage() {
             const has = postsByDay.has(key);
             const isCur = isSameMonth(d, month);
             const isSel = isSameDay(d, selected);
-            const isToday = isSameDay(d, new Date());
+            const isToday = isSameDay(d, nowSP());
             return (
               <button
                 key={d.toISOString()}
@@ -112,7 +111,7 @@ function CalendarioPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="font-display font-semibold mb-1">{format(selected, "dd 'de' MMMM")}</h3>
+        <h3 className="font-display font-semibold mb-1">{format(selected, "dd 'de' MMMM", { locale: ptBR })}</h3>
         <p className="text-xs text-muted-foreground mb-5">{selectedPosts.length} post(s)</p>
         {selectedPosts.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">Nenhum post neste dia</p>
