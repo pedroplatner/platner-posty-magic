@@ -4,11 +4,16 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Scripts,
+  useLocation,
+  useNavigate,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -45,16 +50,47 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen flex w-full bg-background text-foreground">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <AppHeader />
-          <main className="flex-1 p-8 overflow-auto">
-            <Outlet />
-          </main>
-        </div>
-      </div>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
       <Toaster theme="dark" position="top-right" />
     </QueryClientProvider>
+  );
+}
+
+function AuthGate() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isLogin = location.pathname === "/login";
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user && !isLogin) navigate({ to: "/login", replace: true });
+    if (user && isLogin) navigate({ to: "/", replace: true });
+  }, [user, loading, isLogin, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isLogin || !user) {
+    return <Outlet />;
+  }
+
+  return (
+    <div className="min-h-screen flex w-full bg-background text-foreground">
+      <AppSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <AppHeader />
+        <main className="flex-1 p-8 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }

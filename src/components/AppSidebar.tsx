@@ -1,7 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Calendar, PlusSquare, ListOrdered, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Calendar, PlusSquare, ListOrdered, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useAuth, signOut } from "@/lib/auth";
+import { toast } from "sonner";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
