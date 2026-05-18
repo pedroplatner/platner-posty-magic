@@ -1,17 +1,30 @@
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+import { toast } from "sonner";
 
 export function OfflineBanner() {
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
+    let wasOffline = !navigator.onLine;
+    setOnline(navigator.onLine);
+    const goOnline = () => {
+      setOnline(true);
+      if (wasOffline) {
+        toast.success("Conexão restaurada");
+        wasOffline = false;
+      }
+    };
+    const goOffline = () => {
+      setOnline(false);
+      wasOffline = true;
+      toast.error("Sem conexão", { description: "Algumas ações ficarão indisponíveis." });
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
     return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
     };
   }, []);
 

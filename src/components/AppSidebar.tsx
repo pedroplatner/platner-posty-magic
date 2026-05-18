@@ -4,19 +4,21 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth, signOut } from "@/lib/auth";
 import { toast } from "sonner";
+import { useErrorCount } from "@/hooks/useErrorCount";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/calendario", label: "Calendário", icon: Calendar },
   { to: "/novo-post", label: "Novo Post", icon: PlusSquare },
   { to: "/fila", label: "Fila", icon: ListOrdered },
-  { to: "/historico", label: "Histórico", icon: History },
+  { to: "/historico", label: "Histórico", icon: History, badgeKey: "errors" as const },
 ] as const;
 
 export function AppSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
+  const errorCount = useErrorCount();
   async function handleLogout() {
     await signOut();
     toast.success("Sessão encerrada");
@@ -43,13 +45,14 @@ export function AppSidebar() {
         {items.map((it) => {
           const active = path === it.to;
           const Icon = it.icon;
+          const showBadge = "badgeKey" in it && it.badgeKey === "errors" && errorCount > 0;
           return (
             <Link
               key={it.to}
               to={it.to}
               title={collapsed ? it.label : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                "relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                 collapsed && "justify-center",
                 active
                   ? "bg-primary text-primary-foreground font-medium"
@@ -57,7 +60,18 @@ export function AppSidebar() {
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && it.label}
+              {!collapsed && <span className="flex-1">{it.label}</span>}
+              {showBadge && (
+                <span
+                  className={cn(
+                    "min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center",
+                    collapsed && "absolute top-1 right-1"
+                  )}
+                  title={`${errorCount} post(s) com erro`}
+                >
+                  {errorCount > 99 ? "99+" : errorCount}
+                </span>
+              )}
             </Link>
           );
         })}

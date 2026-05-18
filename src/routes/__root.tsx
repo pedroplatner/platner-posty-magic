@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { useRecentErrorsToast } from "@/hooks/useRecentErrorsToast";
 import { Loader2 } from "lucide-react";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -68,6 +69,7 @@ function AuthGate() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLogin = location.pathname === "/login";
+  useRecentErrorsToast(!!user && !loading);
 
   useEffect(() => {
     if (loading) return;
