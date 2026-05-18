@@ -63,8 +63,18 @@ export function AppSidebar() {
       >
         {collapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4" /> Minimizar</>}
       </button>
-      {!collapsed && (
-        <div className="px-4 pb-4 text-xs text-muted-foreground">@platnersystem</div>
+      <button
+        onClick={handleLogout}
+        title={collapsed ? "Sair" : undefined}
+        className={cn(
+          "mx-3 mb-2 h-9 rounded-lg border border-sidebar-border text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive flex items-center justify-center gap-2 text-xs transition-colors",
+        )}
+      >
+        <LogOut className="h-4 w-4" />
+        {!collapsed && "Sair"}
+      </button>
+      {!collapsed && user?.email && (
+        <div className="px-4 pb-4 text-xs text-muted-foreground truncate" title={user.email}>{user.email}</div>
       )}
     </aside>
   );
