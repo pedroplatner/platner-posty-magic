@@ -3,23 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
 import { formatBR, truncate } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
-import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Sparkles, Check } from "lucide-react";
+import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 import { toZonedTime, format as fmtTz } from "date-fns-tz";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/")({ component: Dashboard });
-
-const TEMAS = [
-  "Dica rápida do dia",
-  "Bastidores do projeto",
-  "Antes e depois",
-  "Tutorial em 3 passos",
-  "Pergunta para o público",
-  "Mostre seu produto",
-  "Citação inspiradora",
-  "Tendência da semana",
-];
+export const Route = createFileRoute("/")({ component: Dashboard, ssr: false });
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
