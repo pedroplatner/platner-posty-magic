@@ -18,6 +18,7 @@ export function AppSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
+  const errorCount = useErrorCount();
   async function handleLogout() {
     await signOut();
     toast.success("Sessão encerrada");
