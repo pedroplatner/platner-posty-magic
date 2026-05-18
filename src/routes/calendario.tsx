@@ -90,23 +90,39 @@ function CalendarioPage() {
         <div className="grid grid-cols-7 gap-1">
           {days.map((d) => {
             const key = format(d, "yyyy-MM-dd");
-            const has = postsByDay.has(key);
+            const dayPosts = postsByDay.get(key) ?? [];
             const isCur = isSameMonth(d, month);
             const isSel = isSameDay(d, selected);
             const isToday = isSameDay(d, nowSP());
+            // dots by status, max 3
+            const dots = dayPosts.slice(0, 3).map((p) => {
+              if (p.status === "publicado") return "bg-success";
+              if (p.status === "erro") return "bg-destructive";
+              if (p.status === "rascunho") return "bg-warning";
+              return "bg-primary";
+            });
             return (
               <button
                 key={d.toISOString()}
                 onClick={() => setSelected(d)}
                 className={cn(
-                  "h-12 rounded-md border text-sm flex flex-col items-center justify-center relative transition-colors",
+                  "h-14 rounded-md border text-sm flex flex-col items-center justify-center relative transition-colors",
                   isSel ? "border-primary bg-primary/10" : "border-border/50 hover:border-border",
                   !isCur && "opacity-40",
                   isToday && !isSel && "border-primary/40"
                 )}
               >
                 <span className="leading-none">{format(d, "d")}</span>
-                {has && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />}
+                {dots.length > 0 && (
+                  <div className="absolute bottom-1.5 flex gap-0.5">
+                    {dots.map((c, i) => (
+                      <span key={i} className={cn("h-1 w-1 rounded-full", c)} />
+                    ))}
+                    {dayPosts.length > 3 && (
+                      <span className="text-[8px] text-muted-foreground leading-none ml-0.5">+{dayPosts.length - 3}</span>
+                    )}
+                  </div>
+                )}
               </button>
             );
           })}

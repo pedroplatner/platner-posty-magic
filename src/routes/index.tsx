@@ -145,7 +145,7 @@ function Dashboard() {
                     {g.posts.map((p) => (
                       <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/50 hover:border-primary/30 transition-colors">
                         <div className="h-12 w-12 rounded-lg overflow-hidden bg-muted shrink-0">
-                          {p.imagem_url && <img src={p.imagem_url} alt="" className="w-full h-full object-cover" />}
+                          {p.imagem_url && <img src={p.imagem_url} alt="" loading="lazy" className="w-full h-full object-cover" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
