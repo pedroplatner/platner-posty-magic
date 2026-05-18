@@ -27,7 +27,10 @@ function CalendarioPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("posts_instagram").select("*").order("data_publicacao");
+      const { data } = await supabase
+        .from("posts_instagram")
+        .select("id,imagem_url,legenda,data_publicacao,status,tipo_post,erro_msg")
+        .order("data_publicacao");
       setPosts(data ?? []);
     };
     load();
