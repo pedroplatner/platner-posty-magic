@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as NovoPostRouteImport } from './routes/novo-post'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as FilaRouteImport } from './routes/fila'
 import { Route as CalendarioRouteImport } from './routes/calendario'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const NovoPostRoute = NovoPostRouteImport.update({
   id: '/novo-post',
   path: '/novo-post',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FilaRoute = FilaRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendario': typeof CalendarioRoute
   '/fila': typeof FilaRoute
+  '/login': typeof LoginRoute
   '/novo-post': typeof NovoPostRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendario': typeof CalendarioRoute
   '/fila': typeof FilaRoute
+  '/login': typeof LoginRoute
   '/novo-post': typeof NovoPostRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/calendario': typeof CalendarioRoute
   '/fila': typeof FilaRoute
+  '/login': typeof LoginRoute
   '/novo-post': typeof NovoPostRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/calendario' | '/fila' | '/novo-post'
+  fullPaths: '/' | '/calendario' | '/fila' | '/login' | '/novo-post'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/calendario' | '/fila' | '/novo-post'
-  id: '__root__' | '/' | '/calendario' | '/fila' | '/novo-post'
+  to: '/' | '/calendario' | '/fila' | '/login' | '/novo-post'
+  id: '__root__' | '/' | '/calendario' | '/fila' | '/login' | '/novo-post'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalendarioRoute: typeof CalendarioRoute
   FilaRoute: typeof FilaRoute
+  LoginRoute: typeof LoginRoute
   NovoPostRoute: typeof NovoPostRoute
 }
 
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/novo-post'
       fullPath: '/novo-post'
       preLoaderRoute: typeof NovoPostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fila': {
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalendarioRoute: CalendarioRoute,
   FilaRoute: FilaRoute,
+  LoginRoute: LoginRoute,
   NovoPostRoute: NovoPostRoute,
 }
 export const routeTree = rootRouteImport
