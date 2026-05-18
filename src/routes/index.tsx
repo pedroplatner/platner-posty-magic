@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
 import { formatBR, truncate, nowSP, startOfDaySP, toSP } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check } from "lucide-react";
 import { startOfWeek, endOfWeek } from "date-fns";
 import { format as fmtTz } from "date-fns-tz";
@@ -14,6 +15,7 @@ const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta"
 
 function Dashboard() {
   const [posts, setPosts] = useState<PostInstagram[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,6 +25,7 @@ function Dashboard() {
         .select("id,imagem_url,legenda,data_publicacao,status,tipo_post,erro_msg,publicado_em,created_at")
         .order("data_publicacao", { ascending: true });
       setPosts((data ?? []) as unknown as PostInstagram[]);
+      setLoading(false);
     };
     load();
     const ch = supabase
@@ -77,6 +80,39 @@ function Dashboard() {
     toast.success("Rascunho aprovado e agendado");
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-8 max-w-7xl">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-5 space-y-3">
+              <Skeleton className="h-9 w-9 rounded-lg" />
+              <Skeleton className="h-7 w-12" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-12 w-12 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-1/4" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 max-w-7xl">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -109,7 +145,7 @@ function Dashboard() {
                     {g.posts.map((p) => (
                       <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/50 hover:border-primary/30 transition-colors">
                         <div className="h-12 w-12 rounded-lg overflow-hidden bg-muted shrink-0">
-                          {p.imagem_url && <img src={p.imagem_url} alt="" className="w-full h-full object-cover" />}
+                          {p.imagem_url && <img src={p.imagem_url} alt="" loading="lazy" className="w-full h-full object-cover" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">

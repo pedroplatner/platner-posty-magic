@@ -278,26 +278,45 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
         </div>
 
         <div>
-          <Label htmlFor="legenda">Legenda</Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label htmlFor="legenda">Legenda</Label>
+            <span className={cn(
+              "text-[11px]",
+              legenda.length > 2200 ? "text-destructive font-medium" : "text-muted-foreground"
+            )}>
+              {legenda.length} / 2200
+            </span>
+          </div>
           <Textarea
             id="legenda"
             value={legenda}
             onChange={(e) => setLegenda(e.target.value)}
             rows={4}
             placeholder="Escreva a legenda do post..."
-            className="mt-2"
           />
         </div>
 
         <div>
-          <Label htmlFor="hashtags">Hashtags</Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label htmlFor="hashtags">Hashtags</Label>
+            {(() => {
+              const count = (hashtags.match(/#\w+/g) || []).length;
+              return (
+                <span className={cn(
+                  "text-[11px]",
+                  count > 30 ? "text-destructive font-medium" : "text-muted-foreground"
+                )}>
+                  {count} / 30
+                </span>
+              );
+            })()}
+          </div>
           <Textarea
             id="hashtags"
             value={hashtags}
             onChange={(e) => setHashtags(e.target.value)}
             rows={2}
             placeholder="#exemplo #hashtag"
-            className="mt-2"
           />
         </div>
 
