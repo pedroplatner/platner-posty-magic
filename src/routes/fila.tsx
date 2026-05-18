@@ -37,8 +37,11 @@ function FilaPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("posts_instagram").select("*").order("data_publicacao", { ascending: true });
-      setPosts(data ?? []);
+      const { data } = await supabase
+        .from("posts_instagram")
+        .select("id,imagem_url,storage_path,legenda,data_publicacao,status,tipo_post,erro_msg,publicado_em,created_at")
+        .order("data_publicacao", { ascending: true });
+      setPosts((data ?? []) as unknown as PostInstagram[]);
     };
     load();
     const ch = supabase
