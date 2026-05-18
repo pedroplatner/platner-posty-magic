@@ -80,6 +80,39 @@ function Dashboard() {
     toast.success("Rascunho aprovado e agendado");
   }
 
+  if (loading) {
+    return (
+      <div className="space-y-8 max-w-7xl">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-5 space-y-3">
+              <Skeleton className="h-9 w-9 rounded-lg" />
+              <Skeleton className="h-7 w-12" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-12 w-12 rounded-lg" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-1/4" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 max-w-7xl">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
