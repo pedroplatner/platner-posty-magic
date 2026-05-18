@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Calendar, PlusSquare, ListOrdered } from "lucide-react";
+import { LayoutDashboard, Calendar, PlusSquare, ListOrdered, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -11,15 +12,23 @@ const items = [
 
 export function AppSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const [collapsed, setCollapsed] = useState(false);
   return (
-    <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col">
-      <div className="px-6 py-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center font-display font-bold text-primary-foreground">P</div>
-          <div>
-            <div className="font-display font-semibold text-base leading-tight">Platner.IG</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Scheduler</div>
-          </div>
+    <aside
+      className={cn(
+        "shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col transition-[width] duration-200",
+        collapsed ? "w-16" : "w-60"
+      )}
+    >
+      <div className={cn("py-6 border-b border-sidebar-border flex items-center", collapsed ? "px-3 justify-center" : "px-6")}>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-9 w-9 shrink-0 rounded-lg bg-primary flex items-center justify-center font-display font-bold text-primary-foreground">P</div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <div className="font-display font-semibold text-base leading-tight truncate">Platner.IG</div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Scheduler</div>
+            </div>
+          )}
         </div>
       </div>
       <nav className="p-3 flex-1 space-y-1">
@@ -30,22 +39,31 @@ export function AppSidebar() {
             <Link
               key={it.to}
               to={it.to}
+              title={collapsed ? it.label : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                collapsed && "justify-center",
                 active
                   ? "bg-primary text-primary-foreground font-medium"
                   : "text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground"
               )}
             >
-              <Icon className="h-4 w-4" />
-              {it.label}
+              <Icon className="h-4 w-4 shrink-0" />
+              {!collapsed && it.label}
             </Link>
           );
         })}
       </nav>
-      <div className="p-4 border-t border-sidebar-border text-xs text-muted-foreground">
-        @platnersystem
-      </div>
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="m-3 h-9 rounded-lg border border-sidebar-border text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground flex items-center justify-center gap-2 text-xs transition-colors"
+        title={collapsed ? "Expandir menu" : "Minimizar menu"}
+      >
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4" /> Minimizar</>}
+      </button>
+      {!collapsed && (
+        <div className="px-4 pb-4 text-xs text-muted-foreground">@platnersystem</div>
+      )}
     </aside>
   );
 }

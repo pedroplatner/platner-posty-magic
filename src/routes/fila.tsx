@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export const Route = createFileRoute("/fila")({ component: FilaPage });
+export const Route = createFileRoute("/fila")({ component: FilaPage, ssr: false });
 
 const FILTROS: { key: "todos" | PostStatus; label: string }[] = [
   { key: "todos", label: "Todos" },

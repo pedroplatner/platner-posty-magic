@@ -2,11 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { NewPostForm } from "@/components/NewPostForm";
 
 export const Route = createFileRoute("/novo-post")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    tema: (s.tema as string) || "",
-    id: (s.id as string) || "",
-  }),
+  validateSearch: (s: Record<string, unknown>) => ({ tema: (s.tema as string) || "", id: (s.id as string) || "" }),
   component: NovoPost,
+  ssr: false,
 });
 
 function NovoPost() {

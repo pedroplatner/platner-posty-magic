@@ -3,23 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
 import { formatBR, truncate } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
-import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Sparkles, Check } from "lucide-react";
+import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfDay } from "date-fns";
 import { toZonedTime, format as fmtTz } from "date-fns-tz";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/")({ component: Dashboard });
-
-const TEMAS = [
-  "Dica rápida do dia",
-  "Bastidores do projeto",
-  "Antes e depois",
-  "Tutorial em 3 passos",
-  "Pergunta para o público",
-  "Mostre seu produto",
-  "Citação inspiradora",
-  "Tendência da semana",
-];
+export const Route = createFileRoute("/")({ component: Dashboard, ssr: false });
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -152,21 +141,21 @@ function Dashboard() {
 
         <div className="space-y-6">
           <div className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h2 className="font-display text-lg font-semibold">Temas Sugeridos</h2>
+            <div className="flex items-center gap-2 mb-3">
+              <Search className="h-4 w-4 text-primary" />
+              <h2 className="font-display text-lg font-semibold">Tendências</h2>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {TEMAS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => navigate({ to: "/novo-post", search: { tema: t, id: "" } as any })}
-                  className="text-xs px-3 py-1.5 rounded-full bg-secondary hover:bg-primary hover:text-primary-foreground border border-border transition-colors"
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Descubra os temas e formatos que estão bombando agora.
+            </p>
+            <button
+              disabled
+              title="Em breve"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary/15 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              <Search className="h-4 w-4" /> Pesquisar Tendências
+            </button>
+            <p className="text-[10px] text-muted-foreground text-center mt-2">Em breve</p>
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6">
