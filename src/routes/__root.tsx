@@ -13,6 +13,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { Loader2 } from "lucide-react";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -49,12 +51,15 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AuthGate />
-      </AuthProvider>
-      <Toaster theme="dark" position="top-right" />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <OfflineBanner />
+          <AuthGate />
+        </AuthProvider>
+        <Toaster theme="dark" position="top-right" />
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
