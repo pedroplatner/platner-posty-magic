@@ -11,7 +11,9 @@ import { uploadImage, deleteStoragePaths } from "@/lib/storage";
 import { buildSPDate } from "@/lib/format";
 import { InstagramPreview } from "./InstagramPreview";
 import { toast } from "sonner";
-import { Upload, X, GripVertical, Loader2, CalendarIcon } from "lucide-react";
+import { Upload, X, GripVertical, Loader2, CalendarIcon, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { gerarLegenda, gerarHashtags } from "@/lib/ai.functions";
 import { format as fmtTz, toZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -58,6 +60,36 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiLegenda, setAiLegenda] = useState(false);
+  const [aiHashtags, setAiHashtags] = useState(false);
+  const callGerarLegenda = useServerFn(gerarLegenda);
+  const callGerarHashtags = useServerFn(gerarHashtags);
+
+  async function handleGerarLegenda() {
+    const tema = legenda.trim() || initialLegenda.trim();
+    if (!tema) return toast.error("Escreva um tema/ideia primeiro na legenda");
+    setAiLegenda(true);
+    try {
+      const r = await callGerarLegenda({ data: { tema, tipo } });
+      setLegenda(r.legenda);
+      toast.success("Legenda gerada");
+    } catch (e: any) {
+      toast.error(e?.message?.includes("402") ? "Sem créditos de IA na workspace" : "Falha ao gerar legenda");
+    } finally { setAiLegenda(false); }
+  }
+
+  async function handleGerarHashtags() {
+    const ctx = (legenda + " " + hashtags).trim();
+    if (!ctx) return toast.error("Escreva a legenda primeiro");
+    setAiHashtags(true);
+    try {
+      const r = await callGerarHashtags({ data: { contexto: ctx } });
+      setHashtags(r.hashtags);
+      toast.success("Hashtags geradas");
+    } catch (e: any) {
+      toast.error(e?.message?.includes("402") ? "Sem créditos de IA na workspace" : "Falha ao gerar hashtags");
+    } finally { setAiHashtags(false); }
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -278,14 +310,26 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2">
             <Label htmlFor="legenda">Legenda</Label>
-            <span className={cn(
-              "text-[11px]",
-              legenda.length > 2200 ? "text-destructive font-medium" : "text-muted-foreground"
-            )}>
-              {legenda.length} / 2200
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGerarLegenda}
+                disabled={aiLegenda}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                title="Gerar legenda com IA (use o tema atual)"
+              >
+                {aiLegenda ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Gerar com IA
+              </button>
+              <span className={cn(
+                "text-[11px]",
+                legenda.length > 2200 ? "text-destructive font-medium" : "text-muted-foreground"
+              )}>
+                {legenda.length} / 2200
+              </span>
+            </div>
           </div>
           <Textarea
             id="legenda"
@@ -297,19 +341,31 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2">
             <Label htmlFor="hashtags">Hashtags</Label>
-            {(() => {
-              const count = (hashtags.match(/#\w+/g) || []).length;
-              return (
-                <span className={cn(
-                  "text-[11px]",
-                  count > 30 ? "text-destructive font-medium" : "text-muted-foreground"
-                )}>
-                  {count} / 30
-                </span>
-              );
-            })()}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGerarHashtags}
+                disabled={aiHashtags}
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                title="Sugerir hashtags com base na legenda"
+              >
+                {aiHashtags ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Sugerir com IA
+              </button>
+              {(() => {
+                const count = (hashtags.match(/#\w+/g) || []).length;
+                return (
+                  <span className={cn(
+                    "text-[11px]",
+                    count > 30 ? "text-destructive font-medium" : "text-muted-foreground"
+                  )}>
+                    {count} / 30
+                  </span>
+                );
+              })()}
+            </div>
           </div>
           <Textarea
             id="hashtags"
