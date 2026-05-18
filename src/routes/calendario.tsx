@@ -97,14 +97,14 @@ function CalendarioPage() {
                 key={d.toISOString()}
                 onClick={() => setSelected(d)}
                 className={cn(
-                  "aspect-square rounded-lg border text-sm flex flex-col items-center justify-center relative transition-colors",
+                  "h-12 rounded-md border text-sm flex flex-col items-center justify-center relative transition-colors",
                   isSel ? "border-primary bg-primary/10" : "border-border/50 hover:border-border",
                   !isCur && "opacity-40",
                   isToday && !isSel && "border-primary/40"
                 )}
               >
-                <span>{format(d, "d")}</span>
-                {has && <span className="absolute bottom-1.5 h-1.5 w-1.5 rounded-full bg-primary" />}
+                <span className="leading-none">{format(d, "d")}</span>
+                {has && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />}
               </button>
             );
           })}

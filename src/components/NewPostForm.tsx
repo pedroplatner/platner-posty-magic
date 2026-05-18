@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { supabase, type PostTipo } from "@/lib/supabase";
-import { uploadImage } from "@/lib/storage";
+import { supabase, type PostInstagram, type PostMidia, type PostTipo, TIMEZONE } from "@/lib/supabase";
+import { uploadImage, deleteStoragePaths } from "@/lib/storage";
 import { buildSPDate } from "@/lib/format";
 import { InstagramPreview } from "./InstagramPreview";
 import { toast } from "sonner";
-import { Upload, X, GripVertical, Loader2 } from "lucide-react";
+import { Upload, X, GripVertical, Loader2, CalendarIcon } from "lucide-react";
+import { format as fmtTz, toZonedTime } from "date-fns-tz";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   DndContext,
   closestCenter,
@@ -33,16 +38,21 @@ interface ImgItem {
   id: string;
   file?: File;
   preview: string;
+  existingPath?: string; // when loaded from DB
 }
 
 interface Props {
   initialLegenda?: string;
+  editId?: string;
 }
 
-export function NewPostForm({ initialLegenda = "" }: Props) {
+export function NewPostForm({ initialLegenda = "", editId }: Props) {
   const navigate = useNavigate();
+  const isEdit = !!editId;
+  const [loading, setLoading] = useState(isEdit);
   const [tipo, setTipo] = useState<PostTipo>("feed");
   const [imgs, setImgs] = useState<ImgItem[]>([]);
+  const [removedPaths, setRemovedPaths] = useState<string[]>([]);
   const [legenda, setLegenda] = useState(initialLegenda);
   const [hashtags, setHashtags] = useState("");
   const [data, setData] = useState("");
@@ -50,6 +60,32 @@ export function NewPostForm({ initialLegenda = "" }: Props) {
   const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    if (!editId) return;
+    (async () => {
+      const { data: post } = await supabase.from("posts_instagram").select("*").eq("id", editId).single();
+      if (!post) { toast.error("Post não encontrado"); navigate({ to: "/fila" }); return; }
+      const p = post as PostInstagram;
+      setTipo(p.tipo_post);
+      setLegenda(p.legenda ?? "");
+      setHashtags(p.hashtags ?? "");
+      if (p.data_publicacao) {
+        const d = toZonedTime(new Date(p.data_publicacao), TIMEZONE);
+        setData(fmtTz(d, "yyyy-MM-dd", { timeZone: TIMEZONE }));
+        setHora(fmtTz(d, "HH:mm", { timeZone: TIMEZONE }));
+      }
+      if (p.tipo_post === "carrossel") {
+        const { data: m } = await supabase.from("post_midias").select("*").eq("post_id", editId).order("ordem");
+        setImgs(((m as PostMidia[]) ?? []).map((x) => ({
+          id: crypto.randomUUID(), preview: x.imagem_url, existingPath: x.storage_path,
+        })));
+      } else if (p.imagem_url && p.storage_path) {
+        setImgs([{ id: crypto.randomUUID(), preview: p.imagem_url, existingPath: p.storage_path }]);
+      }
+      setLoading(false);
+    })();
+  }, [editId, navigate]);
 
   function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
@@ -61,17 +97,28 @@ export function NewPostForm({ initialLegenda = "" }: Props) {
       });
     } else {
       const f = arr[0];
-      setImgs([{ id: crypto.randomUUID(), file: f, preview: URL.createObjectURL(f) }]);
+      // mark current existing as removed
+      setImgs((prev) => {
+        prev.forEach((i) => { if (i.existingPath) setRemovedPaths((r) => [...r, i.existingPath!]); });
+        return [{ id: crypto.randomUUID(), file: f, preview: URL.createObjectURL(f) }];
+      });
     }
   }
 
   function changeTipo(t: PostTipo) {
     setTipo(t);
-    setImgs([]);
+    setImgs((prev) => {
+      prev.forEach((i) => { if (i.existingPath) setRemovedPaths((r) => [...r, i.existingPath!]); });
+      return [];
+    });
   }
 
   function removeImg(id: string) {
-    setImgs((p) => p.filter((i) => i.id !== id));
+    setImgs((p) => {
+      const removed = p.find((i) => i.id === id);
+      if (removed?.existingPath) setRemovedPaths((r) => [...r, removed.existingPath!]);
+      return p.filter((i) => i.id !== id);
+    });
   }
 
   function onDragEnd(e: DragEndEvent) {
@@ -88,49 +135,64 @@ export function NewPostForm({ initialLegenda = "" }: Props) {
     if (!imgs.length) return toast.error("Adicione pelo menos uma imagem");
     if (!legenda.trim()) return toast.error("Legenda é obrigatória");
     if (!data || !hora) return toast.error("Data e horário são obrigatórios");
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) return toast.error("Horário inválido (HH:MM)");
     if (tipo === "carrossel" && imgs.length < 2) return toast.error("Carrossel precisa de no mínimo 2 imagens");
 
     setSaving(true);
     try {
       const dataPub = buildSPDate(data, hora);
-      // Upload all
-      const uploaded: { url: string; path: string }[] = [];
+
+      // Upload new files; reuse existing for items with existingPath
+      const resolved: { url: string; path: string }[] = [];
       for (let i = 0; i < imgs.length; i++) {
         const img = imgs[i];
-        if (!img.file) continue;
-        const suffix = tipo === "carrossel" ? String(i + 1) : undefined;
-        const u = await uploadImage(img.file, suffix);
-        uploaded.push(u);
+        if (img.existingPath) {
+          resolved.push({ url: img.preview, path: img.existingPath });
+        } else if (img.file) {
+          const suffix = tipo === "carrossel" ? String(i + 1) : undefined;
+          const u = await uploadImage(img.file, suffix);
+          resolved.push(u);
+        }
+      }
+      const first = resolved[0];
+
+      if (isEdit) {
+        const { error } = await supabase.from("posts_instagram").update({
+          legenda, hashtags, data_publicacao: dataPub, status, tipo_post: tipo,
+          imagem_url: first.url, storage_path: first.path,
+        }).eq("id", editId!);
+        if (error) throw error;
+
+        // refresh midias if carrossel involved
+        await supabase.from("post_midias").delete().eq("post_id", editId!);
+        if (tipo === "carrossel") {
+          const rows = resolved.map((u, i) => ({
+            post_id: editId!, imagem_url: u.url, storage_path: u.path, ordem: i + 1,
+          }));
+          const { error: e2 } = await supabase.from("post_midias").insert(rows);
+          if (e2) throw e2;
+        }
+        if (removedPaths.length) await deleteStoragePaths(removedPaths);
+      } else {
+        const { data: post, error } = await supabase
+          .from("posts_instagram")
+          .insert({
+            imagem_url: first.url, storage_path: first.path,
+            legenda, hashtags, data_publicacao: dataPub, status, tipo_post: tipo,
+          })
+          .select().single();
+        if (error) throw error;
+
+        if (tipo === "carrossel") {
+          const rows = resolved.map((u, i) => ({
+            post_id: post.id, imagem_url: u.url, storage_path: u.path, ordem: i + 1,
+          }));
+          const { error: e2 } = await supabase.from("post_midias").insert(rows);
+          if (e2) throw e2;
+        }
       }
 
-      const first = uploaded[0];
-      const { data: post, error } = await supabase
-        .from("posts_instagram")
-        .insert({
-          imagem_url: first.url,
-          storage_path: first.path,
-          legenda,
-          hashtags,
-          data_publicacao: dataPub,
-          status,
-          tipo_post: tipo,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      if (tipo === "carrossel") {
-        const rows = uploaded.map((u, i) => ({
-          post_id: post.id,
-          imagem_url: u.url,
-          storage_path: u.path,
-          ordem: i + 1,
-        }));
-        const { error: e2 } = await supabase.from("post_midias").insert(rows);
-        if (e2) throw e2;
-      }
-
-      toast.success(status === "agendado" ? "Post agendado!" : "Rascunho salvo");
+      toast.success(isEdit ? "Post atualizado" : (status === "agendado" ? "Post agendado!" : "Rascunho salvo"));
       navigate({ to: "/fila" });
     } catch (e: any) {
       console.error(e);
@@ -139,6 +201,12 @@ export function NewPostForm({ initialLegenda = "" }: Props) {
       setSaving(false);
     }
   }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  }
+
+  const selectedDate = data ? new Date(`${data}T12:00:00`) : undefined;
 
   return (
     <div className="grid lg:grid-cols-[1fr_400px] gap-8">
@@ -235,14 +303,31 @@ export function NewPostForm({ initialLegenda = "" }: Props) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="data">Data</Label>
-            <Input
-              id="data"
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              className="mt-2"
-            />
+            <Label>Data</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full mt-2 justify-start text-left font-normal",
+                    !data && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Selecione uma data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => d && setData(format(d, "yyyy-MM-dd"))}
+                  initialFocus
+                  locale={ptBR}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <Label>Horário</Label>
@@ -263,17 +348,29 @@ export function NewPostForm({ initialLegenda = "" }: Props) {
                 </button>
               ))}
             </div>
+            <div className="mt-2">
+              <Input
+                type="time"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                placeholder="HH:MM"
+                className="text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Ou digite um horário personalizado</p>
+            </div>
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
-          <Button variant="secondary" disabled={saving} onClick={() => save("rascunho")}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Salvar Rascunho
-          </Button>
+          {!isEdit && (
+            <Button variant="secondary" disabled={saving} onClick={() => save("rascunho")}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar Rascunho
+            </Button>
+          )}
           <Button disabled={saving} onClick={() => save("agendado")}>
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Agendar Post
+            {isEdit ? "Salvar alterações" : "Agendar Post"}
           </Button>
         </div>
       </div>
