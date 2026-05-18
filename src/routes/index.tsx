@@ -22,7 +22,7 @@ function Dashboard() {
         .from("posts_instagram")
         .select("id,imagem_url,legenda,data_publicacao,status,tipo_post,erro_msg,publicado_em,created_at")
         .order("data_publicacao", { ascending: true });
-      setPosts(data ?? []);
+      setPosts((data ?? []) as unknown as PostInstagram[]);
     };
     load();
     const ch = supabase

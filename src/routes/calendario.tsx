@@ -31,7 +31,7 @@ function CalendarioPage() {
         .from("posts_instagram")
         .select("id,imagem_url,legenda,data_publicacao,status,tipo_post,erro_msg")
         .order("data_publicacao");
-      setPosts(data ?? []);
+      setPosts((data ?? []) as unknown as PostInstagram[]);
     };
     load();
     const ch = supabase
