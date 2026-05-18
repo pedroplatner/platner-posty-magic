@@ -105,8 +105,20 @@ function FilaPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-primary/30 transition-colors">
+          {filtered.map((p) => {
+            const editable = p.status === "agendado" || p.status === "rascunho" || p.status === "erro";
+            const stop = (e: React.MouseEvent) => e.stopPropagation();
+            return (
+            <div
+              key={p.id}
+              role={editable ? "button" : undefined}
+              tabIndex={editable ? 0 : undefined}
+              onClick={() => editable && navigate({ to: "/novo-post", search: { id: p.id, tema: "" } as any })}
+              className={cn(
+                "flex items-center gap-4 p-4 bg-card border border-border rounded-xl transition-colors",
+                editable ? "cursor-pointer hover:border-primary/50 hover:bg-card/80" : "hover:border-primary/30"
+              )}
+            >
               <div className="h-16 w-16 rounded-lg overflow-hidden bg-muted shrink-0">
                 {p.imagem_url && <img src={p.imagem_url} alt="" className="w-full h-full object-cover" />}
               </div>
@@ -121,7 +133,7 @@ function FilaPage() {
                 <p className="text-sm font-medium">{formatBR(p.data_publicacao, "dd/MM/yy")}</p>
                 <p className="text-xs text-muted-foreground">{formatBR(p.data_publicacao, "HH:mm")}</p>
               </div>
-              <div className="flex gap-1 shrink-0">
+              <div className="flex gap-1 shrink-0" onClick={stop}>
                 {p.status === "rascunho" && (
                   <Button size="icon" variant="ghost" title="Aprovar e agendar" onClick={() => approve(p)}>
                     <Check className="h-4 w-4 text-success" />
@@ -135,7 +147,8 @@ function FilaPage() {
                 </Button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
