@@ -16,7 +16,7 @@ export function useRecentErrorsToast(enabled: boolean) {
       .from("posts_instagram")
       .select("id", { count: "exact", head: true })
       .eq("status", "erro")
-      .gte("updated_at", since)
+      .gte("created_at", since)
       .then(({ count }) => {
         if (count && count > 0) {
           toast.error(`${count} post${count > 1 ? "s falharam" : " falhou"} na última hora`, {
