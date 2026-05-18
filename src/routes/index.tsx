@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
 import { formatBR, truncate, nowSP, startOfDaySP, toSP } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check } from "lucide-react";
 import { startOfWeek, endOfWeek } from "date-fns";
 import { format as fmtTz } from "date-fns-tz";
