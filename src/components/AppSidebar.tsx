@@ -4,13 +4,14 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth, signOut } from "@/lib/auth";
 import { toast } from "sonner";
+import { useErrorCount } from "@/hooks/useErrorCount";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/calendario", label: "Calendário", icon: Calendar },
   { to: "/novo-post", label: "Novo Post", icon: PlusSquare },
   { to: "/fila", label: "Fila", icon: ListOrdered },
-  { to: "/historico", label: "Histórico", icon: History },
+  { to: "/historico", label: "Histórico", icon: History, badgeKey: "errors" as const },
 ] as const;
 
 export function AppSidebar() {
