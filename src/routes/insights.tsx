@@ -690,3 +690,236 @@ function FragmentRow({ d, row, max }: { d: number; row: number[]; max: number })
     </>
   );
 }
+
+/* ---------------- Section: Daily breakdown (comparação dia a dia) ---------------- */
+type DailyMetricKey = "profile_views" | "website_clicks" | "accounts_engaged" | "reach" | "follower_count";
+
+const DAILY_METRICS: Array<{ key: DailyMetricKey; label: string; short: string }> = [
+  { key: "profile_views", label: "Visitas ao Perfil", short: "Perfil" },
+  { key: "website_clicks", label: "Cliques no Site", short: "Site" },
+  { key: "accounts_engaged", label: "Contas Engajadas", short: "Engajamento" },
+  { key: "reach", label: "Alcance", short: "Alcance" },
+  { key: "follower_count", label: "Novos Seguidores", short: "Seguidores" },
+];
+
+function utcDayBounds(daysAgo: number): { since: number; until: number; dateISO: string } {
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  const since = Math.floor(d.getTime() / 1000);
+  const until = since + 86400 - 1;
+  return { since, until, dateISO: d.toISOString().slice(0, 10) };
+}
+
+function DailyBreakdown({ days, until }: { days: number; until: number }) {
+  const [active, setActive] = useState<DailyMetricKey>("profile_views");
+  const todayBound = Math.floor(Date.now() / 1000);
+  const nDays = Math.min(Math.max(days, 1), 90);
+
+  const buckets = useMemo(() => {
+    const arr: Array<{ since: number; until: number; dateISO: string }> = [];
+    for (let i = 0; i < nDays; i++) arr.push(utcDayBounds(i));
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nDays, until]);
+
+  const totalValueQs = useQueries({
+    queries: buckets.map((b) => ({
+      queryKey: ["ig", "daily-tv", b.dateISO],
+      queryFn: () =>
+        callInsights<IGInsightsResponse>("insights", {
+          metric: "reach,profile_views,website_clicks,accounts_engaged",
+          period: "day",
+          since: b.since,
+          until: Math.min(b.until, todayBound),
+          metric_type: "total_value",
+        }),
+      staleTime: 30 * 60 * 1000,
+      retry: 0,
+    })),
+  });
+
+  const followersQ = useQuery({
+    queryKey: ["ig", "daily-followers", nDays],
+    queryFn: () =>
+      callInsights<IGInsightsResponse>("insights", {
+        metric: "follower_count",
+        period: "day",
+        since: buckets[buckets.length - 1].since,
+        until: todayBound,
+      }),
+    staleTime: 30 * 60 * 1000,
+    retry: 0,
+  });
+
+  const followersByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    const values = followersQ.data?.data?.[0]?.values ?? [];
+    for (const v of values) {
+      if (!v.end_time) continue;
+      const iso = new Date(v.end_time).toISOString().slice(0, 10);
+      map.set(iso, v.value);
+    }
+    return map;
+  }, [followersQ.data]);
+
+  const rows = useMemo(() => {
+    return buckets.map((b, i) => {
+      const r = totalValueQs[i]?.data;
+      const all = r?.data ?? [];
+      const get = (m: string) => {
+        const found = all.find((x) => x.name === m);
+        if (!found) return 0;
+        if (found.total_value && typeof found.total_value.value === "number") return found.total_value.value;
+        return (found.values ?? []).reduce((s, v) => s + (v.value || 0), 0);
+      };
+      return {
+        dateISO: b.dateISO,
+        profile_views: get("profile_views"),
+        website_clicks: get("website_clicks"),
+        accounts_engaged: get("accounts_engaged"),
+        reach: get("reach"),
+        follower_count: followersByDate.get(b.dateISO) ?? 0,
+        isToday: i === 0,
+        loading: !!totalValueQs[i]?.isLoading,
+      };
+    });
+  }, [buckets, totalValueQs, followersByDate]);
+
+  const anyLoading = totalValueQs.some((q) => q.isLoading) || followersQ.isLoading;
+
+  const chartData = useMemo(() => {
+    return [...rows].reverse().map((r) => ({
+      date: new Date(r.dateISO + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      value: r[active],
+    }));
+  }, [rows, active]);
+
+  const today = rows[0];
+  const yesterday = rows[1];
+  const todayVal = today?.[active] ?? 0;
+  const yesterdayVal = yesterday?.[active] ?? 0;
+  const diff = (todayVal as number) - (yesterdayVal as number);
+  const diffPct = (yesterdayVal as number) > 0 ? Math.round((diff / (yesterdayVal as number)) * 100) : null;
+
+  const activeMeta = DAILY_METRICS.find((m) => m.key === active)!;
+
+  return (
+    <section className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold">Evolução diária</h2>
+          <p className="text-xs text-muted-foreground">Compare cada dia com o anterior — últimos {nDays} dias</p>
+        </div>
+        <div className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-2 text-right">
+          <p className="text-[10px] uppercase tracking-wider text-primary">Hoje vs Ontem</p>
+          <div className="flex items-center gap-2 justify-end">
+            <p className="text-lg font-display font-semibold text-primary">{(todayVal as number).toLocaleString("pt-BR")}</p>
+            {diffPct !== null && (
+              <span className={cn("text-xs font-medium flex items-center gap-0.5", diff >= 0 ? "text-green-500" : "text-red-500")}>
+                {diff >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {Math.abs(diffPct)}%
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1 mb-4 border-b border-border">
+        {DAILY_METRICS.map((m) => (
+          <button
+            key={m.key}
+            onClick={() => setActive(m.key)}
+            className={cn(
+              "px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
+              active === m.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {m.short}
+          </button>
+        ))}
+      </div>
+
+      <h3 className="text-sm font-medium mb-2">{activeMeta.label}</h3>
+
+      {anyLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : chartData.every((d) => !d.value) ? (
+        <EmptyChart message="Sem dados no período" />
+      ) : (
+        <div className="h-48 -ml-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="gDaily" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F97316" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#F97316" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+              <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+              />
+              <Area type="monotone" dataKey="value" stroke="#F97316" strokeWidth={2} fill="url(#gDaily)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="mt-5 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+            <tr>
+              <th className="text-left py-2 px-2 font-medium">Data</th>
+              <th className="text-right py-2 px-2 font-medium">Valor</th>
+              <th className="text-right py-2 px-2 font-medium">Δ vs dia anterior</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const prev = rows[i + 1];
+              const curr = r[active] as number;
+              const prevV = prev ? (prev[active] as number) : null;
+              const d = prevV !== null ? curr - prevV : null;
+              const dp = prevV !== null && prevV > 0 ? Math.round(((curr - prevV) / prevV) * 100) : null;
+              const dateLabel = new Date(r.dateISO + "T12:00:00Z").toLocaleDateString("pt-BR", {
+                weekday: "short", day: "2-digit", month: "2-digit",
+              });
+              return (
+                <tr key={r.dateISO} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
+                  <td className="py-2 px-2">
+                    <span className="capitalize">{dateLabel}</span>
+                    {r.isToday && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">parcial</span>}
+                    {i === 1 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">ontem</span>}
+                  </td>
+                  <td className="text-right py-2 px-2 font-medium tabular-nums">
+                    {r.loading ? <Skeleton className="h-4 w-12 ml-auto" /> : curr.toLocaleString("pt-BR")}
+                  </td>
+                  <td className="text-right py-2 px-2 tabular-nums">
+                    {d === null ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <span className={cn(
+                        "inline-flex items-center gap-0.5 text-xs font-medium",
+                        d > 0 ? "text-green-500" : d < 0 ? "text-red-500" : "text-muted-foreground",
+                      )}>
+                        {d > 0 ? <TrendingUp className="h-3 w-3" /> : d < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+                        {d > 0 ? "+" : ""}{d.toLocaleString("pt-BR")}
+                        {dp !== null && <span className="ml-1 opacity-70">({dp > 0 ? "+" : ""}{dp}%)</span>}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
