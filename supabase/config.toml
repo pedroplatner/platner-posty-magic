@@ -1,0 +1,4 @@
+project_id = "abdpzksciqeuuocfesci"
+
+[functions.instagram-insights]
+verify_jwt = true
