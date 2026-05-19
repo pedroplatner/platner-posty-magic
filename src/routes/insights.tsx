@@ -72,15 +72,15 @@ function InsightsPage() {
 
       {tokenError && <ErrorBanner message={tokenError.message} />}
 
-      {hasExpiredToken ? null : (
+      <ProfileHeader q={profileQ} />
+      {!hasExpiredToken && profileQ.data ? (
         <>
-          <ProfileHeader q={profileQ} />
           <FollowersChart since={since} until={until} days={days} />
           <ReachCards since={since} until={until} />
           <TopPostsAndGrid />
           <BestTimeHeatmap />
         </>
-      )}
+      ) : null}
     </div>
   );
 }
