@@ -122,6 +122,10 @@ function Dashboard() {
         <StatCard icon={<TrendingUp />} label="Esta Semana" value={semana} />
       </div>
 
+      <InsightsSummary />
+
+
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
           <div className="flex items-center justify-between mb-5">
