@@ -5,7 +5,9 @@ export type InsightsEndpoint = "profile" | "insights" | "media" | "media_insight
 type MetaApiError = { message?: string; code?: number; error_subcode?: number };
 
 export function isInstagramAuthError(error: unknown): boolean {
-  return error instanceof Error && /token|expired|invalid|190|META_TOKEN_EXPIRED/i.test(error.message);
+  return (
+    error instanceof Error && /token|expired|invalid|190|META_TOKEN_EXPIRED/i.test(error.message)
+  );
 }
 
 function normalizeInsightsError(error: MetaApiError | undefined, fallback: string): Error {
@@ -21,7 +23,10 @@ function normalizeInsightsError(error: MetaApiError | undefined, fallback: strin
 async function readFunctionError(error: unknown): Promise<MetaApiError | undefined> {
   const context = (error as { context?: unknown })?.context;
   if (context instanceof Response) {
-    const text = await context.clone().text().catch(() => "");
+    const text = await context
+      .clone()
+      .text()
+      .catch(() => "");
     if (!text) return undefined;
     try {
       const parsed = JSON.parse(text) as { error?: MetaApiError };
@@ -70,7 +75,10 @@ export interface IGInsightMetric {
   name: string;
   period: string;
   values: IGInsightValue[];
-  total_value?: { value: number; breakdowns?: Array<{ results: Array<{ dimension_values: string[]; value: number }> }> };
+  total_value?: {
+    value: number;
+    breakdowns?: Array<{ results: Array<{ dimension_values: string[]; value: number }> }>;
+  };
 }
 export interface IGInsightsResponse {
   data: IGInsightMetric[];
