@@ -513,20 +513,7 @@ function BestTimeHeatmap() {
                   <div key={h} className="text-center text-muted-foreground">{h % 3 === 0 ? h : ""}</div>
                 ))}
                 {matrix.map((row, d) => (
-                  <>
-                    <div key={`d${d}`} className="text-muted-foreground self-center pr-2 text-right">{DAYS_PT[d]}</div>
-                    {row.map((v, h) => {
-                      const o = max > 0 ? Math.max(0.05, v / max) : 0;
-                      return (
-                        <div
-                          key={`c${d}-${h}`}
-                          title={`${DAYS_PT[d]} ${h}h — ${v}`}
-                          className="aspect-square rounded-sm"
-                          style={{ background: `rgba(249,115,22,${o})` }}
-                        />
-                      );
-                    })}
-                  </>
+                  <FragmentRow key={`row-${d}`} d={d} row={row} max={max} />
                 ))}
               </div>
             </div>
@@ -544,5 +531,24 @@ function BestTimeHeatmap() {
         </>
       )}
     </section>
+  );
+}
+
+function FragmentRow({ d, row, max }: { d: number; row: number[]; max: number }) {
+  return (
+    <>
+      <div className="text-muted-foreground self-center pr-2 text-right">{DAYS_PT[d]}</div>
+      {row.map((v, h) => {
+        const o = max > 0 ? Math.max(0.05, v / max) : 0;
+        return (
+          <div
+            key={`c${d}-${h}`}
+            title={`${DAYS_PT[d]} ${h}h — ${v}`}
+            className="aspect-square rounded-sm"
+            style={{ background: `rgba(249,115,22,${o})` }}
+          />
+        );
+      })}
+    </>
   );
 }
