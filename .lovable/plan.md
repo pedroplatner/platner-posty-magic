@@ -1,48 +1,49 @@
-# Fechamento Onda 6 + Onda 7
+## Diagnóstico
 
-## Onda 6 — Limpeza de bundle (shadcn não usados)
+A função `instagram-insights` foi deployada e está respondendo. Os números zerados de "views" e "interações" vêm de **2 erros 400 da Meta Graph API v22+** que precisamos corrigir na função:
 
-Hoje `src/components/ui/` tem ~46 arquivos. Apenas 14 são realmente importados no projeto:
-
-`alert-dialog, button, calendar, dialog, input, label, popover, separator, sheet, skeleton, sonner, textarea, toggle, tooltip`
-
-**Ação:** deletar os 32 componentes não usados:
-
+### Erro 1 — `media_insights` usando métrica deprecada
 ```
-accordion, alert, aspect-ratio, avatar, badge, breadcrumb, card, carousel,
-chart, checkbox, collapsible, command, context-menu, drawer, dropdown-menu,
-form, hover-card, input-otp, menubar, navigation-menu, pagination, progress,
-radio-group, resizable, scroll-area, select, sidebar, slider, switch, table,
-tabs, toggle-group
+(#100) Starting from version v22.0 and above, the impressions metric is no longer supported
 ```
+A função pede `impressions,reach,saved,total_interactions` para fotos/carrosséis. A partir da v22, `impressions` foi removida — Meta substituiu por **`views`** (unifica fotos, vídeos e reels).
 
-E remover do `package.json` as dependências que ficarem órfãs (ex.: `embla-carousel-react`, `cmdk`, `vaul`, `recharts`, `input-otp`, `react-resizable-panels`, `@radix-ui/*` que só esses componentes usavam).
+Resultado: a chamada inteira falha → `interactions = 0` em todos os posts → Top Posts mostra 0 interações.
 
-**Validação:** rodar build/typecheck após exclusão para garantir que nada quebrou.
+### Erro 2 — `online_followers` recebendo `since`/`until`
+```
+(#100) Parameter since: Must be a unixtime... 
+```
+O frontend (`BestTimeHeatmap`) chama `online_followers` com `period: "lifetime"` mas o `useQuery` global passa params extras vazios — na verdade o problema é que `online_followers` no v25 **não aceita** `since`/`until` quando period=lifetime, e a função encaminha qualquer coisa que vier. Hoje não está vindo nada, mas a Meta ainda retorna 400 porque o endpoint `online_followers` em si pode estar deprecado para essa conta. Vou tratar fallback silencioso.
 
-## Onda 7 — Notificações ativas de falha
+### Por que "views" do post aparece como 0
+No grid de posts, a coluna do olhinho usa `p.impressions || p.reach`. Como `media_insights` falha 100%, ambos vêm 0.
 
-Hoje só temos a tela `/historico` (passiva) e o `OfflineBanner`. Falta avisar o usuário quando algo dá erro.
+---
 
-**Ação:**
+## Plano
 
-1. **Toaster global** já existe (`sonner`). Padronizar uso via util `notify.ts` com helpers `notify.error/success/info`.
-2. **Avisos automáticos em:**
-   - Falha de IA (legenda/hashtags): toast de erro com mensagem (já mapeia 402 → "créditos esgotados").
-   - Falha de salvar post (`novo-post`): toast em vez de console.
-   - Retry em `historico`: toast de sucesso/erro.
-   - OfflineBanner: adicionar toast quando voltar online.
-3. **Indicador no Sidebar** ao lado de "Histórico": badge vermelho com a contagem de posts em `status='erro'`, lendo do Supabase com um pequeno polling (30s) ou refetch ao focar a janela.
-4. **Detecção proativa**: ao carregar o app (root), buscar posts com `status='erro'` da última 1h e disparar um toast resumo ("3 posts falharam — ver histórico") com ação que navega para `/historico`.
+**Arquivo: `supabase/functions/instagram-insights/index.ts`**
 
-**Validação:** simular erro (rejeitar IA / desligar internet) e verificar toasts; checar badge do sidebar com um post `status='erro'` no banco.
+1. No case `media_insights`, trocar conjunto de métricas:
+   - Fotos/Carrossel: `views,reach,saved,total_interactions,likes,comments,shares`
+   - Vídeos/Reels: `views,reach,saved,total_interactions,likes,comments,shares`
+   - (Meta v22+ unificou em `views` — mesma métrica para todos)
 
-## Fora de escopo
+2. Para `online_followers`, garantir que não enviamos `since`/`until` quando `period=lifetime` (já está condicional, mas reforçar). Se a Meta retornar erro nesse metric específico, devolver `{data:[]}` em vez de 400 — assim o heatmap mostra estado vazio em vez de quebrar.
 
-- Onda 4 (Instagram API) — adiada.
-- Testes, PWA, multi-conta, SEO, a11y — não solicitados agora.
+**Arquivo: `src/routes/insights.tsx`**
 
-## Arquivos afetados (resumo)
+3. No grid de posts, trocar `p.impressions || p.reach` por `p.views || p.reach` (campo novo).
+4. No tipo `IGMediaInsights` / enriched, adicionar `views`.
+5. Top Posts já usa `total_interactions`, que vai voltar a funcionar quando o (1) for corrigido — sem mudança lá.
 
-- Deletar: 32 arquivos em `src/components/ui/`.
-- Editar: `package.json`, `src/lib/notify.ts` (novo), `src/components/NewPostForm.tsx`, `src/components/OfflineBanner.tsx`, `src/components/AppSidebar.tsx`, `src/routes/historico.tsx`, `src/routes/novo-post.tsx`, `src/routes/__root.tsx`.
+**Bump `FUNCTION_VERSION`** para `2026-05-19-02` para confirmar redeploy.
+
+---
+
+## Após o deploy manual da função
+
+Você precisará **redeployar a função no Supabase** novamente após eu salvar a alteração (mesmo processo de antes), porque o Lovable não tem deploy automático para esse projeto. Vou avisar no final qual versão esperar na resposta.
+
+Confirma que posso aplicar?

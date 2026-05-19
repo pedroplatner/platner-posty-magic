@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const INSTAGRAM_ACCOUNT_ID = Deno.env.get("INSTAGRAM_BUSINESS_ACCOUNT_ID");
 const ACCESS_TOKEN = Deno.env.get("META_PAGE_ACCESS_TOKEN");
 const BASE_URL = "https://graph.facebook.com/v25.0";
-const FUNCTION_VERSION = "2026-05-19-01";
+const FUNCTION_VERSION = "2026-05-19-02";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
