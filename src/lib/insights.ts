@@ -2,6 +2,37 @@ import { supabase } from "./supabase";
 
 export type InsightsEndpoint = "profile" | "insights" | "media" | "media_insights";
 
+type MetaApiError = { message?: string; code?: number; error_subcode?: number };
+
+export function isInstagramAuthError(error: unknown): boolean {
+  return error instanceof Error && /token|expired|invalid|190|META_TOKEN_EXPIRED/i.test(error.message);
+}
+
+function normalizeInsightsError(error: MetaApiError | undefined, fallback: string): Error {
+  const message = error?.message || fallback || "Erro ao chamar Instagram";
+  if (error?.code === 190 || /access token|session has expired|token/i.test(message)) {
+    return new Error(
+      "META_TOKEN_EXPIRED: O token de acesso do Instagram expirou. Atualize o segredo META_PAGE_ACCESS_TOKEN com um novo token da Meta e recarregue a página.",
+    );
+  }
+  return new Error(message);
+}
+
+async function readFunctionError(error: unknown): Promise<MetaApiError | undefined> {
+  const context = (error as { context?: unknown })?.context;
+  if (context instanceof Response) {
+    const text = await context.clone().text().catch(() => "");
+    if (!text) return undefined;
+    try {
+      const parsed = JSON.parse(text) as { error?: MetaApiError };
+      return parsed.error;
+    } catch {
+      return { message: text };
+    }
+  }
+  return (context as { error?: MetaApiError } | undefined)?.error;
+}
+
 export async function callInsights<T = unknown>(
   endpoint: InsightsEndpoint,
   params?: Record<string, unknown>,
@@ -11,12 +42,12 @@ export async function callInsights<T = unknown>(
   });
   if (error) {
     // supabase wraps non-2xx; try to surface API error message
-    const ctx = (error as unknown as { context?: { error?: { message?: string } } })?.context;
-    throw new Error(ctx?.error?.message || error.message || "Erro ao chamar Instagram");
+    const apiError = await readFunctionError(error);
+    throw normalizeInsightsError(apiError, error.message || "Erro ao chamar Instagram");
   }
   if (data && typeof data === "object" && "error" in (data as object)) {
-    const e = (data as { error: { message?: string } }).error;
-    throw new Error(e.message || "Erro Instagram");
+    const e = (data as { error: MetaApiError }).error;
+    throw normalizeInsightsError(e, "Erro Instagram");
   }
   return data as T;
 }
