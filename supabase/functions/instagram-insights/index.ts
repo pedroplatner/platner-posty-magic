@@ -92,7 +92,7 @@ function json(body: unknown, status: number) {
   const payload = typeof body === "object" && body !== null
     ? { ...body, function_version: FUNCTION_VERSION }
     : body;
-  return new Response(JSON.stringify(body), {
+  return new Response(JSON.stringify(payload), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
