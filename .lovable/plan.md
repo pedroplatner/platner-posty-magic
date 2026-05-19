@@ -1,49 +1,48 @@
-## Diagnóstico
+## Comparação dia a dia
 
-A função `instagram-insights` foi deployada e está respondendo. Os números zerados de "views" e "interações" vêm de **2 erros 400 da Meta Graph API v22+** que precisamos corrigir na função:
+Adicionar uma nova seção em `/insights` chamada **"Evolução diária"** com tabela/gráfico mostrando o valor de cada métrica por dia (hoje, ontem, anteontem...) e variação % dia a dia.
 
-### Erro 1 — `media_insights` usando métrica deprecada
-```
-(#100) Starting from version v22.0 and above, the impressions metric is no longer supported
-```
-A função pede `impressions,reach,saved,total_interactions` para fotos/carrosséis. A partir da v22, `impressions` foi removida — Meta substituiu por **`views`** (unifica fotos, vídeos e reels).
+### Métricas incluídas
+- Visitas ao perfil (`profile_views`)
+- Cliques no site (`website_clicks`)
+- Contas engajadas (`accounts_engaged`)
+- Alcance (`reach`)
+- Crescimento de seguidores (`follower_count` — novos seguidores por dia)
+- Impressões totais (`views`, soma dos posts)
 
-Resultado: a chamada inteira falha → `interactions = 0` em todos os posts → Top Posts mostra 0 interações.
+### Como vai funcionar na tela
+- Logo abaixo dos cards de "Alcance & Engajamento" entra uma nova seção.
+- Linha de "abas" no topo da seção: uma aba por métrica (Perfil, Site, Engajamento, Alcance, Seguidores).
+- Ao clicar na aba, mostra:
+  - **Gráfico de área** com os últimos 7/14/30/90 dias (respeita o filtro já existente no topo).
+  - **Tabela** abaixo: cada linha = 1 dia (mais recente primeiro), colunas: Data | Valor | Δ vs dia anterior (%/absoluto, com seta verde/vermelha).
+  - **Card destaque** no canto: "Hoje vs Ontem" com a variação principal.
 
-### Erro 2 — `online_followers` recebendo `since`/`until`
-```
-(#100) Parameter since: Must be a unixtime... 
-```
-O frontend (`BestTimeHeatmap`) chama `online_followers` com `period: "lifetime"` mas o `useQuery` global passa params extras vazios — na verdade o problema é que `online_followers` no v25 **não aceita** `since`/`until` quando period=lifetime, e a função encaminha qualquer coisa que vier. Hoje não está vindo nada, mas a Meta ainda retorna 400 porque o endpoint `online_followers` em si pode estar deprecado para essa conta. Vou tratar fallback silencioso.
+### Como vamos buscar os dados (parte técnica)
 
-### Por que "views" do post aparece como 0
-No grid de posts, a coluna do olhinho usa `p.impressions || p.reach`. Como `media_insights` falha 100%, ambos vêm 0.
+A Meta v22+ tem duas categorias de métrica:
 
----
+1. **Suportam `period=day` direto com série temporal** (1 chamada devolve todos os dias):
+   - `reach`, `follower_count`
+   - Já é assim que o gráfico de seguidores funciona hoje.
 
-## Plano
+2. **Exigem `metric_type=total_value`** (devolvem só 1 número agregado):
+   - `profile_views`, `website_clicks`, `accounts_engaged`
+   - Para obter série diária: **fazer N chamadas em paralelo**, uma por dia, com `since`/`until` cobrindo só aquele dia (00:00–23:59 UTC).
+   - Custoso mas é o único jeito na v22+. Para 30 dias = 30 requests × 3 métricas = 90 requests. Mitigação: agrupar as 3 métricas numa única call por dia (`metric=profile_views,website_clicks,accounts_engaged`) → 30 requests só. `React Query` cacheia por dia (`queryKey: ["ig","daily",date]`), `staleTime: 30min`. Períodos menores (7/14 dias) ficam instantâneos.
 
-**Arquivo: `supabase/functions/instagram-insights/index.ts`**
+3. **Por post**: `views` agregado por dia já é derivável do que temos hoje (data do post + views) — sem chamada extra.
 
-1. No case `media_insights`, trocar conjunto de métricas:
-   - Fotos/Carrossel: `views,reach,saved,total_interactions,likes,comments,shares`
-   - Vídeos/Reels: `views,reach,saved,total_interactions,likes,comments,shares`
-   - (Meta v22+ unificou em `views` — mesma métrica para todos)
+### Arquivos a alterar
+- `src/lib/insights.ts` — helpers `dayRangeUTC(date)` e `buildDailySeries(metric, days)`.
+- `src/routes/insights.tsx` — nova seção `<DailyBreakdown since={since} until={until} days={days} />` inserida após `<ReachCards />`.
 
-2. Para `online_followers`, garantir que não enviamos `since`/`until` quando `period=lifetime` (já está condicional, mas reforçar). Se a Meta retornar erro nesse metric específico, devolver `{data:[]}` em vez de 400 — assim o heatmap mostra estado vazio em vez de quebrar.
+### Cuidados
+- Hoje (dia em curso) aparece com tag "parcial" porque a Meta só fecha o dia ~3h depois.
+- Conta com pouco tráfego (caso atual: 25 seguidores) vai mostrar muitos zeros — é esperado, não é bug. A comparação % vira "—" quando o dia anterior foi 0.
+- Não vai aumentar custo de função (Edge Function é só proxy; Meta Graph API não cobra).
 
-**Arquivo: `src/routes/insights.tsx`**
-
-3. No grid de posts, trocar `p.impressions || p.reach` por `p.views || p.reach` (campo novo).
-4. No tipo `IGMediaInsights` / enriched, adicionar `views`.
-5. Top Posts já usa `total_interactions`, que vai voltar a funcionar quando o (1) for corrigido — sem mudança lá.
-
-**Bump `FUNCTION_VERSION`** para `2026-05-19-02` para confirmar redeploy.
-
----
-
-## Após o deploy manual da função
-
-Você precisará **redeployar a função no Supabase** novamente após eu salvar a alteração (mesmo processo de antes), porque o Lovable não tem deploy automático para esse projeto. Vou avisar no final qual versão esperar na resposta.
-
-Confirma que posso aplicar?
+### Fora do escopo
+- Histórico além de 90 dias (limite da Meta API para essas métricas).
+- Exportar CSV (posso adicionar depois se quiser).
+- Comparação mês-vs-mês ou semana-vs-semana (foco aqui é diário).
