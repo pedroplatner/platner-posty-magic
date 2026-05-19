@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const INSTAGRAM_ACCOUNT_ID = Deno.env.get("INSTAGRAM_BUSINESS_ACCOUNT_ID");
 const ACCESS_TOKEN = Deno.env.get("META_PAGE_ACCESS_TOKEN");
 const BASE_URL = "https://graph.facebook.com/v25.0";
-const FUNCTION_VERSION = "2026-05-19-03";
+const FUNCTION_VERSION = "2026-05-19-04";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,8 +43,8 @@ serve(async (req) => {
       case "insights": {
         const { metric, period, since, until, metric_type } = p;
         const qs = new URLSearchParams({ metric });
-        // When metric_type=total_value, Meta rejects period=day
-        if (period && !metric_type) qs.set("period", period);
+        // Meta requires period even with metric_type=total_value
+        if (period) qs.set("period", period);
         if (since) qs.set("since", String(since));
         if (until) qs.set("until", String(until));
         if (metric_type) qs.set("metric_type", String(metric_type));
