@@ -314,7 +314,7 @@ function TopPostsAndGrid() {
       const get = (n: string) => ins.find((x) => x.name === n)?.values?.[0]?.value ?? 0;
       return {
         ...m,
-        impressions: get("impressions"),
+        views: get("views"),
         reach: get("reach"),
         saved: get("saved"),
         interactions: get("total_interactions"),
