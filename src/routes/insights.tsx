@@ -395,7 +395,7 @@ function TopPostsAndGrid() {
                     <div className="grid grid-cols-4 gap-2 mt-3 text-xs text-muted-foreground">
                       <Stat icon={<Heart className="h-3 w-3" />} value={p.like_count ?? 0} />
                       <Stat icon={<MessageCircle className="h-3 w-3" />} value={p.comments_count ?? 0} />
-                      <Stat icon={<Eye className="h-3 w-3" />} value={p.impressions || p.reach} />
+                      <Stat icon={<Eye className="h-3 w-3" />} value={p.views || p.reach} />
                       <Stat icon={<Bookmark className="h-3 w-3" />} value={p.saved} />
                     </div>
                   </div>
