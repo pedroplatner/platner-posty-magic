@@ -244,6 +244,100 @@ function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label
   );
 }
 
+function InsightsSummary() {
+  const profileQ = useQuery({
+    queryKey: ["ig", "profile"],
+    queryFn: () => callInsights<IGProfile>("profile"),
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  });
+  const reachQ = useQuery({
+    queryKey: ["ig", "reach-7d-summary"],
+    queryFn: async () => {
+      const { since, until } = unixSecondsAgo(7);
+      return callInsights<IGInsightsResponse>("insights", {
+        metric: "reach", period: "day", since, until, metric_type: "total_value",
+      });
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  });
+  const topQ = useQuery({
+    queryKey: ["ig", "media-summary"],
+    queryFn: () => callInsights<IGMediaResponse>("media", { limit: 1 }),
+    staleTime: 10 * 60 * 1000,
+    retry: 0,
+  });
+
+  if (profileQ.error && reachQ.error && topQ.error) return null; // graceful hide if token bad
+
+  const followers = profileQ.data?.followers_count;
+  const reach = reachQ.data?.data?.[0]?.total_value?.value
+    ?? reachQ.data?.data?.[0]?.values?.reduce((s, v) => s + (v.value || 0), 0)
+    ?? null;
+  const top = topQ.data?.data?.[0];
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          <h2 className="font-display text-lg font-semibold">Instagram Insights</h2>
+        </div>
+        <Link to="/insights" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+          Ver tudo <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryItem
+          icon={<Users className="h-4 w-4" />}
+          label="Seguidores"
+          loading={profileQ.isLoading}
+          value={followers ? followers.toLocaleString("pt-BR") : "—"}
+        />
+        <SummaryItem
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Alcance (7d)"
+          loading={reachQ.isLoading}
+          value={reach !== null ? Number(reach).toLocaleString("pt-BR") : "—"}
+        />
+        <div className="bg-background/50 border border-border/50 rounded-lg p-3 flex items-center gap-3">
+          <div className="h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0">
+            {top && <img src={top.thumbnail_url || top.media_url} alt="" className="w-full h-full object-cover" loading="lazy" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Heart className="h-3 w-3" /> Último post
+            </p>
+            {topQ.isLoading ? (
+              <Skeleton className="h-4 w-32 mt-1" />
+            ) : (
+              <p className="text-sm truncate">{top ? truncate(top.caption, 45) : "—"}</p>
+            )}
+            {top && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {(top.like_count ?? 0).toLocaleString("pt-BR")} curtidas
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryItem({ icon, label, value, loading }: { icon: React.ReactNode; label: string; value: string; loading: boolean }) {
+  return (
+    <div className="bg-background/50 border border-border/50 rounded-lg p-3 flex items-center gap-3">
+      <div className="h-10 w-10 rounded-md bg-primary/15 text-primary flex items-center justify-center">{icon}</div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+        {loading ? <Skeleton className="h-5 w-16 mt-1" /> : <p className="text-lg font-display font-semibold">{value}</p>}
+      </div>
+    </div>
+  );
+}
+
 function Empty({ message, cta, onClick }: { message: string; cta: string; onClick: () => void }) {
   return (
     <div className="text-center py-12">
