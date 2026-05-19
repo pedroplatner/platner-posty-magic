@@ -77,6 +77,7 @@ function InsightsPage() {
         <>
           <FollowersChart since={since} until={until} days={days} />
           <ReachCards since={since} until={until} />
+          <DailyBreakdown days={days} until={until} />
           <TopPostsAndGrid />
           <BestTimeHeatmap />
         </>
