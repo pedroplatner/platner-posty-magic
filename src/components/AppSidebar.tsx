@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useAuth, signOut } from "@/lib/auth";
 import { toast } from "sonner";
 import { useErrorCount } from "@/hooks/useErrorCount";
+import { useQuery } from "@tanstack/react-query";
+import { callInsights, type IGProfile } from "@/lib/insights";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -20,6 +22,13 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
   const errorCount = useErrorCount();
+  const profileQ = useQuery({
+    queryKey: ["ig", "profile"],
+    queryFn: () => callInsights<IGProfile>("profile"),
+    staleTime: 10 * 60 * 1000,
+    retry: 0,
+  });
+  const pic = profileQ.data?.profile_picture_url;
   async function handleLogout() {
     await signOut();
     toast.success("Sessão encerrada");
@@ -27,16 +36,20 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        "shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col transition-[width] duration-200",
+        "shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col transition-[width] duration-200 sticky top-0 h-screen overflow-y-auto",
         collapsed ? "w-16" : "w-60"
       )}
     >
       <div className={cn("py-6 border-b border-sidebar-border flex items-center", collapsed ? "px-3 justify-center" : "px-6")}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-9 w-9 shrink-0 rounded-lg bg-primary flex items-center justify-center font-display font-bold text-primary-foreground">P</div>
+          {pic ? (
+            <img src={pic} alt="PlatnerSystem" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-primary flex items-center justify-center font-display font-bold text-primary-foreground">P</div>
+          )}
           {!collapsed && (
             <div className="min-w-0">
-              <div className="font-display font-semibold text-base leading-tight truncate">Platner.IG</div>
+              <div className="font-display font-semibold text-base leading-tight truncate">PlatnerSystem</div>
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Scheduler</div>
             </div>
           )}
