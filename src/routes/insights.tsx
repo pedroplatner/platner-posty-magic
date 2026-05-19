@@ -817,21 +817,71 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
 
   return (
     <section className="bg-card border border-border rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h2 className="font-display text-lg font-semibold">Evolução diária</h2>
           <p className="text-xs text-muted-foreground">Compare cada dia com o anterior — últimos {nDays} dias</p>
         </div>
-        <div className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-2 text-right">
-          <p className="text-[10px] uppercase tracking-wider text-primary">Hoje vs Ontem</p>
-          <div className="flex items-center gap-2 justify-end">
-            <p className="text-lg font-display font-semibold text-primary">{(todayVal as number).toLocaleString("pt-BR")}</p>
-            {diffPct !== null && (
-              <span className={cn("text-xs font-medium flex items-center gap-0.5", diff >= 0 ? "text-green-500" : "text-red-500")}>
-                {diff >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {Math.abs(diffPct)}%
-              </span>
-            )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5">
+            {DAILY_RANGE_OPTS.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => { setRangeDays(o.value); setCustomOpen(false); }}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                  rangeDays === o.value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setCustomOpen((v) => !v)}
+              className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                isCustom
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {isCustom ? `${nDays}d` : "Personalizado"}
+            </button>
+          </div>
+          {customOpen && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const n = parseInt(customInput, 10);
+                if (!isNaN(n) && n >= 1 && n <= 90) { setRangeDays(n); setCustomOpen(false); }
+              }}
+              className="flex items-center gap-1"
+            >
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                placeholder="1-90"
+                className="w-16 h-7 px-2 text-xs rounded-md border border-border bg-background"
+              />
+              <button type="submit" className="h-7 px-2 text-xs rounded-md bg-primary text-primary-foreground">OK</button>
+            </form>
+          )}
+          <div className="rounded-lg bg-primary/10 border border-primary/30 px-3 py-1.5 text-right">
+            <p className="text-[10px] uppercase tracking-wider text-primary leading-tight">Hoje vs Ontem</p>
+            <div className="flex items-center gap-2 justify-end">
+              <p className="text-base font-display font-semibold text-primary leading-tight">{(todayVal as number).toLocaleString("pt-BR")}</p>
+              {diffPct !== null && (
+                <span className={cn("text-xs font-medium flex items-center gap-0.5", diff >= 0 ? "text-green-500" : "text-red-500")}>
+                  {diff >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {Math.abs(diffPct)}%
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
