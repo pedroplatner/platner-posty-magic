@@ -1,15 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
 import { formatBR, truncate, nowSP, startOfDaySP, toSP } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check } from "lucide-react";
+import { CalendarClock, FileEdit, CheckCircle2, TrendingUp, Search, Check, BarChart3, Users, Heart, ArrowRight } from "lucide-react";
 import { startOfWeek, endOfWeek } from "date-fns";
 import { format as fmtTz } from "date-fns-tz";
 import { toast } from "sonner";
+import { callInsights, unixSecondsAgo, type IGProfile, type IGInsightsResponse, type IGMediaResponse } from "@/lib/insights";
 
 export const Route = createFileRoute("/")({ component: Dashboard, ssr: false });
+
 
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
