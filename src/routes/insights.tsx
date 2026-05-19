@@ -1,26 +1,34 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery, useQueries, useInfiniteQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart,
 } from "recharts";
 import {
   Eye, Users, UserCheck, ExternalLink, TrendingUp, TrendingDown,
-  Heart, MessageCircle, Bookmark, BarChart3, Trophy, AlertTriangle, Loader2,
+  Heart, MessageCircle, Bookmark, BarChart3, Trophy, AlertTriangle, Loader2, CalendarIcon,
 } from "lucide-react";
 import {
   callInsights, unixSecondsAgo,
   type IGProfile, type IGInsightsResponse, type IGMediaResponse, type IGMediaInsights,
 } from "@/lib/insights";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatBR, truncate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/insights")({ component: InsightsPage, ssr: false });
 
-type RangeDays = 7 | 14 | 30 | 90;
+type RangePreset = 7 | 14 | 30 | 90;
 
 function InsightsPage() {
-  const [range, setRange] = useState<RangeDays>(30);
+  const [preset, setPreset] = useState<RangePreset>(30);
+  const [customRange, setCustomRange] = useState<DateRange | null>(null);
+
   const profileQ = useQuery({
     queryKey: ["ig", "profile"],
     queryFn: () => callInsights<IGProfile>("profile"),
@@ -28,7 +36,18 @@ function InsightsPage() {
     retry: 1,
   });
 
-  // Critical credential / token errors → show banner instead of partial UI
+  const { since, until, days } = useMemo(() => {
+    if (customRange?.from && customRange?.to) {
+      const fromTs = Math.floor(customRange.from.getTime() / 1000);
+      const toDate = new Date(customRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      const toTs = Math.floor(toDate.getTime() / 1000);
+      return { since: fromTs, until: toTs, days: Math.max(1, Math.round((toTs - fromTs) / 86400)) };
+    }
+    const r = unixSecondsAgo(preset);
+    return { ...r, days: preset as number };
+  }, [preset, customRange]);
+
   const tokenError = profileQ.error as Error | undefined;
 
   return (
@@ -42,36 +61,105 @@ function InsightsPage() {
             Métricas em tempo real da sua conta Business via Meta Graph API.
           </p>
         </div>
-        <RangeSelector value={range} onChange={setRange} />
+        <RangeSelector
+          preset={preset}
+          onPresetChange={(v) => { setPreset(v); setCustomRange(null); }}
+          customRange={customRange}
+          onCustomChange={setCustomRange}
+        />
       </header>
 
       {tokenError && <ErrorBanner message={tokenError.message} />}
 
       <ProfileHeader q={profileQ} />
-      <FollowersChart range={range} />
-      <ReachCards range={range} />
+      <FollowersChart since={since} until={until} days={days} />
+      <ReachCards since={since} until={until} />
       <TopPostsAndGrid />
       <BestTimeHeatmap />
     </div>
   );
 }
 
-/* ---------------- Range selector ---------------- */
-function RangeSelector({ value, onChange }: { value: RangeDays; onChange: (v: RangeDays) => void }) {
-  const opts: RangeDays[] = [7, 14, 30, 90];
+/* ---------------- Range selector com calendário ---------------- */
+function RangeSelector({
+  preset, onPresetChange, customRange, onCustomChange,
+}: {
+  preset: RangePreset;
+  onPresetChange: (v: RangePreset) => void;
+  customRange: DateRange | null;
+  onCustomChange: (r: DateRange | null) => void;
+}) {
+  const opts: RangePreset[] = [7, 14, 30, 90];
+  const [calRange, setCalRange] = useState<DateRange | undefined>(customRange ?? undefined);
+  const [open, setOpen] = useState(false);
+  const isCustom = !!(customRange?.from && customRange?.to);
+
+  const customLabel = isCustom && customRange?.from && customRange?.to
+    ? `${format(customRange.from, "dd/MM", { locale: ptBR })} – ${format(customRange.to, "dd/MM", { locale: ptBR })}`
+    : "Personalizado";
+
   return (
-    <div className="inline-flex rounded-lg border border-border bg-card p-1">
+    <div className="inline-flex rounded-lg border border-border bg-card p-1 gap-0.5 flex-wrap">
       {opts.map((d) => (
         <button
           key={d}
-          onClick={() => onChange(d)}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-            value === d ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-          }`}
+          onClick={() => { onPresetChange(d); onCustomChange(null); }}
+          className={cn(
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+            !isCustom && preset === d
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
         >
           {d} dias
         </button>
       ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1",
+              isCustom
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <CalendarIcon className="h-3 w-3" />
+            {customLabel}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar
+            mode="range"
+            selected={calRange}
+            onSelect={setCalRange}
+            numberOfMonths={2}
+            locale={ptBR}
+            disabled={{ after: new Date() }}
+            className="pointer-events-auto"
+          />
+          <div className="flex justify-end gap-2 p-3 border-t border-border">
+            <button
+              onClick={() => { setCalRange(undefined); onCustomChange(null); setOpen(false); }}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+            >
+              Limpar
+            </button>
+            <button
+              onClick={() => {
+                if (calRange?.from && calRange?.to) {
+                  onCustomChange(calRange);
+                  setOpen(false);
+                }
+              }}
+              disabled={!calRange?.from || !calRange?.to}
+              className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Aplicar
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -116,6 +204,7 @@ function ProfileHeader({ q }: { q: ReturnType<typeof useQuery<IGProfile>> }) {
         alt={p.username}
         className="h-20 w-20 rounded-full object-cover ring-2 ring-primary/30"
         loading="lazy"
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
       />
       <div className="flex-1 min-w-[150px]">
         <h2 className="font-display text-xl font-semibold">{p.name}</h2>
@@ -140,15 +229,13 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 }
 
 /* ---------------- Section 2: Followers growth chart ---------------- */
-function FollowersChart({ range }: { range: RangeDays }) {
+function FollowersChart({ since, until, days }: { since: number; until: number; days: number }) {
   const q = useQuery({
-    queryKey: ["ig", "follower_count", range],
-    queryFn: async () => {
-      const { since, until } = unixSecondsAgo(range);
-      return callInsights<IGInsightsResponse>("insights", {
+    queryKey: ["ig", "follower_count", since, until],
+    queryFn: () =>
+      callInsights<IGInsightsResponse>("insights", {
         metric: "follower_count", period: "day", since, until,
-      });
-    },
+      }),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -168,7 +255,7 @@ function FollowersChart({ range }: { range: RangeDays }) {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h2 className="font-display text-lg font-semibold">Crescimento de Seguidores</h2>
-          <p className="text-xs text-muted-foreground">Novos seguidores por dia — últimos {range} dias</p>
+          <p className="text-xs text-muted-foreground">Novos seguidores por dia — últimos {days} dias</p>
         </div>
         <div className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-2">
           <p className="text-[10px] uppercase tracking-wider text-primary">Novos no período</p>
@@ -215,45 +302,66 @@ function EmptyChart({ message }: { message: string }) {
   );
 }
 
-/* ---------------- Section 3: Reach & engagement cards ---------------- */
-function ReachCards({ range }: { range: RangeDays }) {
+/* ---------------- Section 3: Reach & engagement cards (com variação %) ---------------- */
+function ReachCards({ since, until }: { since: number; until: number }) {
+  const duration = until - since;
+  const prevSince = since - duration;
+  const prevUntil = since;
+
   const q = useQuery({
-    queryKey: ["ig", "reach-metrics", range],
+    queryKey: ["ig", "reach-metrics", since, until],
     queryFn: async () => {
-      const { since, until } = unixSecondsAgo(range);
-      // v22+: reach uses metric_type=total_value; impressions deprecated for most accounts
-      const [reach, views] = await Promise.allSettled([
+      const [reach, views, prevReach, prevViews] = await Promise.allSettled([
         callInsights<IGInsightsResponse>("insights", {
           metric: "reach", period: "day", since, until, metric_type: "total_value",
         }),
         callInsights<IGInsightsResponse>("insights", {
           metric: "profile_views,website_clicks,accounts_engaged", period: "day", since, until, metric_type: "total_value",
         }),
+        callInsights<IGInsightsResponse>("insights", {
+          metric: "reach", period: "day", since: prevSince, until: prevUntil, metric_type: "total_value",
+        }),
+        callInsights<IGInsightsResponse>("insights", {
+          metric: "profile_views,website_clicks,accounts_engaged", period: "day", since: prevSince, until: prevUntil, metric_type: "total_value",
+        }),
       ]);
       return {
         reach: reach.status === "fulfilled" ? reach.value : null,
         views: views.status === "fulfilled" ? views.value : null,
+        prevReach: prevReach.status === "fulfilled" ? prevReach.value : null,
+        prevViews: prevViews.status === "fulfilled" ? prevViews.value : null,
       };
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  const get = (metric: string) => {
-    const all = [...(q.data?.reach?.data ?? []), ...(q.data?.views?.data ?? [])];
+  function getVal(metric: string, isPrev = false): number | null {
+    const reachData = isPrev ? q.data?.prevReach : q.data?.reach;
+    const viewsData = isPrev ? q.data?.prevViews : q.data?.views;
+    const all = [...(reachData?.data ?? []), ...(viewsData?.data ?? [])];
     const m = all.find((x) => x.name === metric);
     if (!m) return null;
     if (m.total_value && typeof m.total_value.value === "number") return m.total_value.value;
     const sum = (m.values ?? []).reduce((s, v) => s + (v.value || 0), 0);
     return sum || null;
-  };
+  }
+
+  function pct(curr: number | null, prev: number | null): number | null {
+    if (curr === null || prev === null || prev === 0) return null;
+    return Math.round(((curr - prev) / prev) * 100);
+  }
 
   const cards = [
-    { label: "Alcance", icon: Users, value: get("reach") },
-    { label: "Visitas ao Perfil", icon: UserCheck, value: get("profile_views") },
-    { label: "Contas Engajadas", icon: Eye, value: get("accounts_engaged") },
-    { label: "Cliques no Site", icon: ExternalLink, value: get("website_clicks") },
-  ];
+    { label: "Alcance", icon: Users, metric: "reach" },
+    { label: "Visitas ao Perfil", icon: UserCheck, metric: "profile_views" },
+    { label: "Contas Engajadas", icon: Eye, metric: "accounts_engaged" },
+    { label: "Cliques no Site", icon: ExternalLink, metric: "website_clicks" },
+  ].map((c) => {
+    const curr = getVal(c.metric);
+    const prev = getVal(c.metric, true);
+    return { ...c, value: curr, change: pct(curr, prev) };
+  });
 
   return (
     <section>
@@ -268,8 +376,8 @@ function ReachCards({ range }: { range: RangeDays }) {
 }
 
 function MetricCard({
-  label, icon: Icon, value, loading,
-}: { label: string; icon: typeof Eye; value: number | null; loading: boolean }) {
+  label, icon: Icon, value, change, loading,
+}: { label: string; icon: typeof Eye; value: number | null; change: number | null; loading: boolean }) {
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center mb-3">
@@ -282,22 +390,40 @@ function MetricCard({
           {value === null ? "—" : value.toLocaleString("pt-BR")}
         </p>
       )}
-      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+      <div className="flex items-center justify-between mt-1 gap-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {!loading && change !== null && (
+          <span className={cn(
+            "text-xs font-medium flex items-center gap-0.5 shrink-0",
+            change >= 0 ? "text-green-500" : "text-red-500"
+          )}>
+            {change >= 0
+              ? <TrendingUp className="h-3 w-3" />
+              : <TrendingDown className="h-3 w-3" />}
+            {Math.abs(change)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-/* ---------------- Section 4 + 6: Media grid & top posts ---------------- */
+/* ---------------- Section 4 + 6: Media grid & top posts (cursor pagination) ---------------- */
 function TopPostsAndGrid() {
-  const [limit, setLimit] = useState(12);
-  const mediaQ = useQuery({
-    queryKey: ["ig", "media", limit],
-    queryFn: () => callInsights<IGMediaResponse>("media", { limit }),
+  const mediaQ = useInfiniteQuery({
+    queryKey: ["ig", "media"],
+    queryFn: ({ pageParam }) =>
+      callInsights<IGMediaResponse>("media", {
+        limit: 12,
+        ...(pageParam ? { after: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.paging?.cursors?.after ?? undefined,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  const mediaList = mediaQ.data?.data ?? [];
+  const mediaList = mediaQ.data?.pages.flatMap((p) => p.data) ?? [];
 
   const insightsQs = useQueries({
     queries: mediaList.map((m) => ({
@@ -326,6 +452,8 @@ function TopPostsAndGrid() {
     return [...enriched].sort((a, b) => b.interactions - a.interactions).slice(0, 3);
   }, [enriched]);
 
+  const isLoading = mediaQ.isLoading;
+
   return (
     <>
       {/* Top posts ranking */}
@@ -333,7 +461,7 @@ function TopPostsAndGrid() {
         <h2 className="font-display text-lg font-semibold mb-3 flex items-center gap-2">
           <Trophy className="h-5 w-5 text-primary" /> Top Posts
         </h2>
-        {mediaQ.isLoading ? (
+        {isLoading ? (
           <div className="grid md:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
           </div>
@@ -344,9 +472,10 @@ function TopPostsAndGrid() {
             {top3.map((p, i) => (
               <div
                 key={p.id}
-                className={`bg-card border rounded-xl p-4 flex gap-3 ${
+                className={cn(
+                  "bg-card border rounded-xl p-4 flex gap-3",
                   i === 0 ? "border-primary/60 ring-1 ring-primary/30" : "border-border"
-                }`}
+                )}
               >
                 <div className="relative h-20 w-20 rounded-lg overflow-hidden bg-muted shrink-0">
                   <img src={p.thumbnail_url || p.media_url} alt="" className="w-full h-full object-cover" loading="lazy" />
@@ -373,7 +502,7 @@ function TopPostsAndGrid() {
           <h2 className="font-display text-lg font-semibold">Performance dos Posts</h2>
           <p className="text-xs text-muted-foreground">{enriched.length} posts</p>
         </div>
-        {mediaQ.isLoading ? (
+        {isLoading ? (
           <div className="grid md:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
           </div>
@@ -402,12 +531,14 @@ function TopPostsAndGrid() {
                 </article>
               ))}
             </div>
-            {mediaQ.data?.paging?.next && (
+            {mediaQ.hasNextPage && (
               <div className="text-center mt-6">
                 <button
-                  onClick={() => setLimit((l) => l + 12)}
-                  className="px-5 py-2 rounded-lg bg-primary/15 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/25 transition-colors"
+                  onClick={() => mediaQ.fetchNextPage()}
+                  disabled={mediaQ.isFetchingNextPage}
+                  className="px-5 py-2 rounded-lg bg-primary/15 text-primary border border-primary/30 text-sm font-medium hover:bg-primary/25 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
                 >
+                  {mediaQ.isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin" />}
                   Ver mais posts
                 </button>
               </div>
@@ -447,14 +578,12 @@ function BestTimeHeatmap() {
     const mat: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
     let max = 0;
     const values = q.data?.data?.[0]?.values ?? [];
-    // Two possible shapes; handle both
     for (const v of values) {
       const anyV = v as unknown as { value: unknown };
       if (typeof anyV.value === "object" && anyV.value !== null) {
-        // legacy hourly { "0": n, "1": n... } keyed by end_time day
         const date = v.end_time ? new Date(v.end_time) : null;
         if (!date) continue;
-        const dow = (date.getDay() + 6) % 7; // Mon=0..Sun=6
+        const dow = (date.getDay() + 6) % 7;
         Object.entries(anyV.value as Record<string, number>).forEach(([h, n]) => {
           const hour = Number(h);
           if (!Number.isFinite(hour)) return;
@@ -463,7 +592,6 @@ function BestTimeHeatmap() {
         });
       }
     }
-    // breakdown shape (newer API)
     const td = q.data?.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
     for (const r of td) {
       const [dayKey, hourKey] = r.dimension_values;
