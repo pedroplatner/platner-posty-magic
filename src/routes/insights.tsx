@@ -711,10 +711,21 @@ function utcDayBounds(daysAgo: number): { since: number; until: number; dateISO:
   return { since, until, dateISO: d.toISOString().slice(0, 10) };
 }
 
-function DailyBreakdown({ days, until }: { days: number; until: number }) {
+const DAILY_RANGE_OPTS: Array<{ value: number; label: string }> = [
+  { value: 3, label: "3 dias" },
+  { value: 7, label: "7 dias" },
+  { value: 15, label: "15 dias" },
+  { value: 30, label: "30 dias" },
+];
+
+function DailyBreakdown({ days: _days, until }: { days: number; until: number }) {
   const [active, setActive] = useState<DailyMetricKey>("profile_views");
+  const [rangeDays, setRangeDays] = useState<number>(3);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customInput, setCustomInput] = useState<string>("");
   const todayBound = Math.floor(Date.now() / 1000);
-  const nDays = Math.min(Math.max(days, 1), 90);
+  const nDays = Math.min(Math.max(rangeDays, 1), 90);
+  const isCustom = !DAILY_RANGE_OPTS.some((o) => o.value === rangeDays);
 
   const buckets = useMemo(() => {
     const arr: Array<{ since: number; until: number; dateISO: string }> = [];
