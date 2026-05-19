@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as NovoPostRouteImport } from './routes/novo-post'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as HistoricoRouteImport } from './routes/historico'
 import { Route as FilaRouteImport } from './routes/fila'
 import { Route as CalendarioRouteImport } from './routes/calendario'
@@ -24,6 +25,11 @@ const NovoPostRoute = NovoPostRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightsRoute = InsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoricoRoute = HistoricoRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof CalendarioRoute
   '/fila': typeof FilaRoute
   '/historico': typeof HistoricoRoute
+  '/insights': typeof InsightsRoute
   '/login': typeof LoginRoute
   '/novo-post': typeof NovoPostRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/calendario': typeof CalendarioRoute
   '/fila': typeof FilaRoute
   '/historico': typeof HistoricoRoute
+  '/insights': typeof InsightsRoute
   '/login': typeof LoginRoute
   '/novo-post': typeof NovoPostRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/calendario': typeof CalendarioRoute
   '/fila': typeof FilaRoute
   '/historico': typeof HistoricoRoute
+  '/insights': typeof InsightsRoute
   '/login': typeof LoginRoute
   '/novo-post': typeof NovoPostRoute
 }
@@ -79,16 +88,25 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/fila'
     | '/historico'
+    | '/insights'
     | '/login'
     | '/novo-post'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/calendario' | '/fila' | '/historico' | '/login' | '/novo-post'
+  to:
+    | '/'
+    | '/calendario'
+    | '/fila'
+    | '/historico'
+    | '/insights'
+    | '/login'
+    | '/novo-post'
   id:
     | '__root__'
     | '/'
     | '/calendario'
     | '/fila'
     | '/historico'
+    | '/insights'
     | '/login'
     | '/novo-post'
   fileRoutesById: FileRoutesById
@@ -98,6 +116,7 @@ export interface RootRouteChildren {
   CalendarioRoute: typeof CalendarioRoute
   FilaRoute: typeof FilaRoute
   HistoricoRoute: typeof HistoricoRoute
+  InsightsRoute: typeof InsightsRoute
   LoginRoute: typeof LoginRoute
   NovoPostRoute: typeof NovoPostRoute
 }
@@ -116,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insights': {
+      id: '/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof InsightsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/historico': {
@@ -154,9 +180,20 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarioRoute: CalendarioRoute,
   FilaRoute: FilaRoute,
   HistoricoRoute: HistoricoRoute,
+  InsightsRoute: InsightsRoute,
   LoginRoute: LoginRoute,
   NovoPostRoute: NovoPostRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
