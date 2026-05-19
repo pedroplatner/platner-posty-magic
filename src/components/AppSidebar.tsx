@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Calendar, PlusSquare, ListOrdered, History, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, PlusSquare, ListOrdered, History, BarChart3, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth, signOut } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { useErrorCount } from "@/hooks/useErrorCount";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/insights", label: "Insights", icon: BarChart3 },
   { to: "/calendario", label: "Calendário", icon: Calendar },
   { to: "/novo-post", label: "Novo Post", icon: PlusSquare },
   { to: "/fila", label: "Fila", icon: ListOrdered },
