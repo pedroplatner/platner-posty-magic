@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const INSTAGRAM_ACCOUNT_ID = Deno.env.get("INSTAGRAM_BUSINESS_ACCOUNT_ID");
 const ACCESS_TOKEN = Deno.env.get("META_PAGE_ACCESS_TOKEN");
 const BASE_URL = "https://graph.facebook.com/v25.0";
-const FUNCTION_VERSION = "2026-05-19-01";
+const FUNCTION_VERSION = "2026-05-19-02";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,11 +64,11 @@ serve(async (req) => {
       }
       case "media_insights": {
         const { media_id, media_type } = p;
-        // Reels / Videos accept a different metric set
+        // v22+ unified metric set: 'impressions' removed, use 'views'
         const metrics =
           media_type === "VIDEO" || media_type === "REELS"
-            ? "reach,saved,total_interactions,comments,likes"
-            : "impressions,reach,saved,total_interactions";
+            ? "views,reach,saved,total_interactions,likes,comments,shares"
+            : "views,reach,saved,total_interactions,likes,comments,shares";
         url = `${BASE_URL}/${media_id}/insights?metric=${metrics}&access_token=${ACCESS_TOKEN}`;
         break;
       }
@@ -79,6 +79,10 @@ serve(async (req) => {
 
     if (data.error) {
       const code = data.error.code;
+      // online_followers is deprecated for many accounts — return empty instead of error
+      if (endpoint === "insights" && p.metric === "online_followers") {
+        return json({ data: [] }, 200);
+      }
       const status = code === 190 ? 401 : code === 4 || code === 17 ? 429 : 400;
       return json(data, status);
     }
