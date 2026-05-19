@@ -42,6 +42,7 @@ serve(async (req) => {
         break;
       case "insights": {
         const { metric, period, since, until, metric_type } = p;
+        const qs = new URLSearchParams({ metric });
         // Meta requires period even with metric_type=total_value
         if (period) qs.set("period", period);
         if (since) qs.set("since", String(since));
