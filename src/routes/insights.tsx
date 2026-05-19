@@ -718,21 +718,44 @@ const DAILY_RANGE_OPTS: Array<{ value: number; label: string }> = [
   { value: 30, label: "30 dias" },
 ];
 
+function utcDayBoundsFromDate(date: Date): { since: number; until: number; dateISO: string } {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  const since = Math.floor(d.getTime() / 1000);
+  return { since, until: since + 86400 - 1, dateISO: d.toISOString().slice(0, 10) };
+}
+
 function DailyBreakdown({ days: _days, until }: { days: number; until: number }) {
   const [active, setActive] = useState<DailyMetricKey>("profile_views");
   const [rangeDays, setRangeDays] = useState<number>(3);
-  const [customOpen, setCustomOpen] = useState(false);
-  const [customInput, setCustomInput] = useState<string>("");
+  const [customRange, setCustomRange] = useState<DateRange | null>(null);
+  const [calRange, setCalRange] = useState<DateRange | undefined>(undefined);
+  const [calOpen, setCalOpen] = useState(false);
   const todayBound = Math.floor(Date.now() / 1000);
-  const nDays = Math.min(Math.max(rangeDays, 1), 90);
-  const isCustom = !DAILY_RANGE_OPTS.some((o) => o.value === rangeDays);
+  const isCustom = !!(customRange?.from && customRange?.to);
 
   const buckets = useMemo(() => {
     const arr: Array<{ since: number; until: number; dateISO: string }> = [];
-    for (let i = 0; i < nDays; i++) arr.push(utcDayBounds(i));
+    if (isCustom && customRange?.from && customRange?.to) {
+      const start = new Date(customRange.from);
+      const end = new Date(customRange.to);
+      start.setUTCHours(0, 0, 0, 0);
+      end.setUTCHours(0, 0, 0, 0);
+      const cursor = new Date(end);
+      while (cursor.getTime() >= start.getTime()) {
+        arr.push(utcDayBoundsFromDate(cursor));
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
+        if (arr.length >= 90) break;
+      }
+    } else {
+      const nDays = Math.min(Math.max(rangeDays, 1), 90);
+      for (let i = 0; i < nDays; i++) arr.push(utcDayBounds(i));
+    }
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nDays, until]);
+  }, [rangeDays, isCustom, customRange?.from?.getTime(), customRange?.to?.getTime(), until]);
+
+  const nDays = buckets.length;
 
   const totalValueQs = useQueries({
     queries: buckets.map((b) => ({
@@ -823,14 +846,14 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
           <p className="text-xs text-muted-foreground">Compare cada dia com o anterior — últimos {nDays} dias</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5">
+          <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5 flex-wrap">
             {DAILY_RANGE_OPTS.map((o) => (
               <button
                 key={o.value}
-                onClick={() => { setRangeDays(o.value); setCustomOpen(false); }}
+                onClick={() => { setRangeDays(o.value); setCustomRange(null); setCalRange(undefined); }}
                 className={cn(
                   "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                  rangeDays === o.value
+                  !isCustom && rangeDays === o.value
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
                 )}
@@ -838,39 +861,55 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
                 {o.label}
               </button>
             ))}
-            <button
-              onClick={() => setCustomOpen((v) => !v)}
-              className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                isCustom
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {isCustom ? `${nDays}d` : "Personalizado"}
-            </button>
+            <Popover open={calOpen} onOpenChange={setCalOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1",
+                    isCustom
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <CalendarIcon className="h-3 w-3" />
+                  {isCustom && customRange?.from && customRange?.to
+                    ? `${format(customRange.from, "dd/MM", { locale: ptBR })} – ${format(customRange.to, "dd/MM", { locale: ptBR })}`
+                    : "Personalizado"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={calRange}
+                  onSelect={setCalRange}
+                  numberOfMonths={2}
+                  locale={ptBR}
+                  disabled={{ after: new Date() }}
+                  className="pointer-events-auto"
+                />
+                <div className="flex justify-end gap-2 p-3 border-t border-border">
+                  <button
+                    onClick={() => { setCalRange(undefined); setCustomRange(null); setCalOpen(false); }}
+                    className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (calRange?.from && calRange?.to) {
+                        setCustomRange({ from: calRange.from, to: calRange.to });
+                        setCalOpen(false);
+                      }
+                    }}
+                    disabled={!calRange?.from || !calRange?.to}
+                    className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
-          {customOpen && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const n = parseInt(customInput, 10);
-                if (!isNaN(n) && n >= 1 && n <= 90) { setRangeDays(n); setCustomOpen(false); }
-              }}
-              className="flex items-center gap-1"
-            >
-              <input
-                type="number"
-                min={1}
-                max={90}
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="1-90"
-                className="w-16 h-7 px-2 text-xs rounded-md border border-border bg-background"
-              />
-              <button type="submit" className="h-7 px-2 text-xs rounded-md bg-primary text-primary-foreground">OK</button>
-            </form>
-          )}
           <div className="rounded-lg bg-primary/10 border border-primary/30 px-3 py-1.5 text-right">
             <p className="text-[10px] uppercase tracking-wider text-primary leading-tight">Hoje vs Ontem</p>
             <div className="flex items-center gap-2 justify-end">
