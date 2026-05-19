@@ -12,7 +12,7 @@ import {
   Heart, MessageCircle, Bookmark, BarChart3, Trophy, AlertTriangle, Loader2, CalendarIcon,
 } from "lucide-react";
 import {
-  callInsights, unixSecondsAgo,
+  callInsights, isInstagramAuthError, unixSecondsAgo,
   type IGProfile, type IGInsightsResponse, type IGMediaResponse, type IGMediaInsights,
 } from "@/lib/insights";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +49,7 @@ function InsightsPage() {
   }, [preset, customRange]);
 
   const tokenError = profileQ.error as Error | undefined;
+  const hasExpiredToken = isInstagramAuthError(tokenError);
 
   return (
     <div className="space-y-8 max-w-7xl">
@@ -71,11 +72,15 @@ function InsightsPage() {
 
       {tokenError && <ErrorBanner message={tokenError.message} />}
 
-      <ProfileHeader q={profileQ} />
-      <FollowersChart since={since} until={until} days={days} />
-      <ReachCards since={since} until={until} />
-      <TopPostsAndGrid />
-      <BestTimeHeatmap />
+      {hasExpiredToken ? null : (
+        <>
+          <ProfileHeader q={profileQ} />
+          <FollowersChart since={since} until={until} days={days} />
+          <ReachCards since={since} until={until} />
+          <TopPostsAndGrid />
+          <BestTimeHeatmap />
+        </>
+      )}
     </div>
   );
 }
@@ -171,9 +176,13 @@ function ErrorBanner({ message }: { message: string }) {
       <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
       <div className="text-sm">
         <p className="font-medium text-destructive">
-          {isAuth ? "Token expirado — entre em contato com o administrador" : "Erro ao carregar Insights"}
+          {isAuth ? "Token do Instagram expirado" : "Erro ao carregar Insights"}
         </p>
-        <p className="text-muted-foreground text-xs mt-1">{message}</p>
+        <p className="text-muted-foreground text-xs mt-1">
+          {isAuth
+            ? "Atualize o segredo META_PAGE_ACCESS_TOKEN com um novo token da Meta para voltar a carregar os dados."
+            : message}
+        </p>
       </div>
     </div>
   );
