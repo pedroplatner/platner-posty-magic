@@ -23,10 +23,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Platner.IG" },
+      { title: "Platner" },
       { name: "description", content: "." },
-      { property: "og:title", content: "Platner.IG" },
-      { name: "twitter:title", content: "Platner.IG" },
+      { property: "og:title", content: "Platner" },
+      { name: "twitter:title", content: "Platner" },
       { property: "og:description", content: "." },
       { name: "twitter:description", content: "." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/WC25DOfyXTgycCV4HJm2geM8pYS2/social-images/social-1779222988493-icon-preto-png.webp" },
