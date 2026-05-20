@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram, type PostStatus } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { deleteStoragePaths } from "@/lib/storage";
 import { formatBR, truncate } from "@/lib/format";
 import { StatusBadge, TipoBadge } from "@/components/Badges";
@@ -32,6 +33,7 @@ const FILTROS: { key: "todos" | PostStatus; label: string }[] = [
 ];
 
 function FilaPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [posts, setPosts] = useState<PostInstagram[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,7 @@ function FilaPage() {
   const [toDelete, setToDelete] = useState<PostInstagram | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from("posts_instagram")
@@ -54,7 +57,7 @@ function FilaPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "posts_instagram" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [user]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { todos: posts.length };

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase, type PostInstagram, TIMEZONE } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { formatBR, truncate, nowSP, startOfDaySP, toSP } from "@/lib/format";
 import { TipoBadge, StatusBadge } from "@/components/Badges";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,11 +18,13 @@ export const Route = createFileRoute("/")({ component: Dashboard, ssr: false });
 const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 function Dashboard() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<PostInstagram[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from("posts_instagram")
@@ -36,7 +39,7 @@ function Dashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "posts_instagram" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [user]);
 
   const agendados = posts.filter((p) => p.status === "agendado").length;
   const publicados = posts.filter((p) => p.status === "publicado").length;
@@ -245,11 +248,13 @@ function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label
 }
 
 function InsightsSummary() {
+  const { user } = useAuth();
   const profileQ = useQuery({
     queryKey: ["ig", "profile"],
     queryFn: () => callInsights<IGProfile>("profile"),
     staleTime: 5 * 60 * 1000,
     retry: 0,
+    enabled: !!user,
   });
   const reachQ = useQuery({
     queryKey: ["ig", "reach-7d-summary"],
@@ -261,12 +266,14 @@ function InsightsSummary() {
     },
     staleTime: 5 * 60 * 1000,
     retry: 0,
+    enabled: !!user,
   });
   const topQ = useQuery({
     queryKey: ["ig", "media-summary"],
     queryFn: () => callInsights<IGMediaResponse>("media", { limit: 1 }),
     staleTime: 10 * 60 * 1000,
     retry: 0,
+    enabled: !!user,
   });
 
   if (profileQ.error && reachQ.error && topQ.error) return null; // graceful hide if token bad

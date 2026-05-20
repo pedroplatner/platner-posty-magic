@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { formatBR, truncate } from "@/lib/format";
 import { StatusBadge, TipoBadge } from "@/components/Badges";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,14 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/historico")({ component: HistoricoPage, ssr: false });
 
 function HistoricoPage() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<PostInstagram[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"todos" | "publicado" | "erro">("todos");
   const [retrying, setRetrying] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from("posts_instagram")
@@ -33,7 +36,7 @@ function HistoricoPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "posts_instagram" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [user]);
 
   const filtered = useMemo(() => {
     if (filter === "todos") return posts;

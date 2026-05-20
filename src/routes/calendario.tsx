@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase, type PostInstagram } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { formatBR, truncate, nowSP, toSP } from "@/lib/format";
 import { TipoBadge } from "@/components/Badges";
 import {
@@ -21,11 +22,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/calendario")({ component: CalendarioPage, ssr: false });
 
 function CalendarioPage() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<PostInstagram[]>([]);
   const [month, setMonth] = useState(() => nowSP());
   const [selected, setSelected] = useState<Date>(() => nowSP());
 
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from("posts_instagram")
@@ -39,7 +42,7 @@ function CalendarioPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "posts_instagram" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [user]);
 
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(month), { weekStartsOn: 0 });

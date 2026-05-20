@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth";
 import { useQuery, useQueries, useInfiniteQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/insights")({ component: InsightsPage, ssr
 type RangePreset = 7 | 14 | 30 | 90;
 
 function InsightsPage() {
+  const { user } = useAuth();
   const [preset, setPreset] = useState<RangePreset>(30);
   const [customRange, setCustomRange] = useState<DateRange | null>(null);
 
@@ -34,6 +36,7 @@ function InsightsPage() {
     queryFn: () => callInsights<IGProfile>("profile"),
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    enabled: !!user,
   });
 
   const { since, until, days } = useMemo(() => {

@@ -11,11 +11,11 @@ import { uploadImage, deleteStoragePaths } from "@/lib/storage";
 import { buildSPDate } from "@/lib/format";
 import { InstagramPreview } from "./InstagramPreview";
 import { toast } from "sonner";
-import { Upload, X, GripVertical, Loader2, CalendarIcon, Sparkles } from "lucide-react";
+import { Upload, X, GripVertical, Loader2, CalendarIcon, Sparkles, Zap, Clock, Brain } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { gerarLegenda, gerarHashtags } from "@/lib/ai.functions";
-import { format as fmtTz, toZonedTime } from "date-fns-tz";
-import { format } from "date-fns";
+import { format as fmtTz, toZonedTime, fromZonedTime } from "date-fns-tz";
+import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   DndContext,
@@ -33,14 +33,22 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { callInsights, type IGInsightsResponse } from "@/lib/insights";
 
-const HORARIOS = ["11:00", "12:00", "13:00", "18:00", "19:00", "20:00"];
+type HorarioMode = "agora" | "manual" | "ia";
+
+const DAY_MAP: Record<string, number> = {
+  MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4,
+  FRIDAY: 5, SATURDAY: 6, SUNDAY: 0,
+};
+const DAYS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 interface ImgItem {
   id: string;
   file?: File;
   preview: string;
-  existingPath?: string; // when loaded from DB
+  existingPath?: string;
 }
 
 interface Props {
@@ -59,11 +67,63 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
   const [hashtags, setHashtags] = useState("");
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
+  const [horarioMode, setHorarioMode] = useState<HorarioMode>("manual");
   const [saving, setSaving] = useState(false);
   const [aiLegenda, setAiLegenda] = useState(false);
   const [aiHashtags, setAiHashtags] = useState(false);
   const callGerarLegenda = useServerFn(gerarLegenda);
   const callGerarHashtags = useServerFn(gerarHashtags);
+
+  // Sugestão IA: busca top 3 horários
+  const iaQ = useQuery({
+    queryKey: ["ig", "online_followers"],
+    queryFn: () => callInsights<IGInsightsResponse>("insights", {
+      metric: "online_followers", period: "lifetime",
+    }),
+    staleTime: 30 * 60 * 1000,
+    retry: 0,
+    enabled: horarioMode === "ia",
+  });
+
+  const iaPeaks = (() => {
+    const mat: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const values = iaQ.data?.data?.[0]?.values ?? [];
+    for (const v of values) {
+      const anyV = v as unknown as { value: unknown };
+      if (typeof anyV.value === "object" && anyV.value !== null) {
+        const date = v.end_time ? new Date(v.end_time) : null;
+        if (!date) continue;
+        const dow = (date.getDay() + 6) % 7;
+        Object.entries(anyV.value as Record<string, number>).forEach(([h, n]) => {
+          const hour = Number(h);
+          if (Number.isFinite(hour)) mat[dow][hour] += n;
+        });
+      }
+    }
+    const td = iaQ.data?.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+    for (const r of td) {
+      const [dayKey, hourKey] = r.dimension_values;
+      const d = DAY_MAP[dayKey];
+      const h = Number(hourKey);
+      if (d !== undefined && Number.isFinite(h)) mat[d][h] += r.value;
+    }
+    const flat: Array<{ d: number; h: number; v: number }> = [];
+    mat.forEach((row, d) => row.forEach((v, h) => flat.push({ d, h, v })));
+    return flat.sort((a, b) => b.v - a.v).filter(p => p.v > 0).slice(0, 3);
+  })();
+
+  function selectIaPeak(d: number, h: number) {
+    // Calcula próxima ocorrência do dia da semana d
+    const now = toZonedTime(new Date(), TIMEZONE);
+    const todayDow = now.getDay(); // 0=Dom
+    let diff = d - todayDow;
+    if (diff <= 0) diff += 7;
+    const target = addDays(now, diff);
+    const dateStr = fmtTz(target, "yyyy-MM-dd", { timeZone: TIMEZONE });
+    const timeStr = String(h).padStart(2, "0") + ":00";
+    setData(dateStr);
+    setHora(timeStr);
+  }
 
   async function handleGerarLegenda() {
     const tema = legenda.trim() || initialLegenda.trim();
@@ -129,7 +189,6 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
       });
     } else {
       const f = arr[0];
-      // mark current existing as removed
       setImgs((prev) => {
         prev.forEach((i) => { if (i.existingPath) setRemovedPaths((r) => [...r, i.existingPath!]); });
         return [{ id: crypto.randomUUID(), file: f, preview: URL.createObjectURL(f) }];
@@ -166,15 +225,21 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
   async function save(status: "rascunho" | "agendado") {
     if (!imgs.length) return toast.error("Adicione pelo menos uma imagem");
     if (!legenda.trim()) return toast.error("Legenda é obrigatória");
-    if (!data || !hora) return toast.error("Data e horário são obrigatórios");
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) return toast.error("Horário inválido (HH:MM)");
     if (tipo === "carrossel" && imgs.length < 2) return toast.error("Carrossel precisa de no mínimo 2 imagens");
+
+    let dataPub: string;
+
+    if (horarioMode === "agora") {
+      const nowUtc = new Date(Date.now() + 60_000);
+      dataPub = nowUtc.toISOString();
+    } else {
+      if (!data || !hora) return toast.error("Data e horário são obrigatórios");
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) return toast.error("Horário inválido (HH:MM)");
+      dataPub = buildSPDate(data, hora);
+    }
 
     setSaving(true);
     try {
-      const dataPub = buildSPDate(data, hora);
-
-      // Upload new files; reuse existing for items with existingPath
       const resolved: { url: string; path: string }[] = [];
       for (let i = 0; i < imgs.length; i++) {
         const img = imgs[i];
@@ -188,14 +253,14 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
       }
       const first = resolved[0];
 
+      let postId: string;
+
       if (isEdit) {
         const { error } = await supabase.from("posts_instagram").update({
           legenda, hashtags, data_publicacao: dataPub, status, tipo_post: tipo,
           imagem_url: first.url, storage_path: first.path,
         }).eq("id", editId!);
         if (error) throw error;
-
-        // refresh midias if carrossel involved
         await supabase.from("post_midias").delete().eq("post_id", editId!);
         if (tipo === "carrossel") {
           const rows = resolved.map((u, i) => ({
@@ -205,6 +270,7 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
           if (e2) throw e2;
         }
         if (removedPaths.length) await deleteStoragePaths(removedPaths);
+        postId = editId!;
       } else {
         const { data: post, error } = await supabase
           .from("posts_instagram")
@@ -214,13 +280,31 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
           })
           .select().single();
         if (error) throw error;
-
         if (tipo === "carrossel") {
           const rows = resolved.map((u, i) => ({
             post_id: post.id, imagem_url: u.url, storage_path: u.path, ordem: i + 1,
           }));
           const { error: e2 } = await supabase.from("post_midias").insert(rows);
           if (e2) throw e2;
+        }
+        postId = post.id;
+      }
+
+      // Dispara webhook n8n se agendado
+      if (status === "agendado") {
+        const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+        if (webhookUrl) {
+          fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              post_id: postId,
+              data_publicacao: dataPub,
+              tipo_post: tipo,
+              legenda,
+              imagem_url: first.url,
+            }),
+          }).catch(() => {}); // fire-and-forget — n8n tem cron como fallback
         }
       }
 
@@ -239,6 +323,7 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
   }
 
   const selectedDate = data ? new Date(`${data}T12:00:00`) : undefined;
+  const showCalendar = horarioMode !== "agora" && !(horarioMode === "ia" && hora);
 
   return (
     <div className="grid lg:grid-cols-[1fr_400px] gap-8">
@@ -376,64 +461,132 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Data</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full mt-2 justify-start text-left font-normal",
-                    !data && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Selecione uma data"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(d) => d && setData(format(d, "yyyy-MM-dd"))}
-                  initialFocus
-                  locale={ptBR}
-                  className={cn("p-3 pointer-events-auto")}
+        {/* Agendamento */}
+        <div className="space-y-3">
+          <Label>Agendamento</Label>
+
+          {/* Tabs de modo */}
+          <div className="flex gap-1 p-1 bg-card border border-border rounded-lg w-fit">
+            <ModeTab
+              active={horarioMode === "agora"}
+              icon={<Zap className="h-3.5 w-3.5" />}
+              label="Agora"
+              onClick={() => setHorarioMode("agora")}
+            />
+            <ModeTab
+              active={horarioMode === "manual"}
+              icon={<Clock className="h-3.5 w-3.5" />}
+              label="Manual"
+              onClick={() => setHorarioMode("manual")}
+            />
+            <ModeTab
+              active={horarioMode === "ia"}
+              icon={<Brain className="h-3.5 w-3.5" />}
+              label="Sugestão IA"
+              onClick={() => setHorarioMode("ia")}
+            />
+          </div>
+
+          {/* Conteúdo da tab */}
+          {horarioMode === "agora" && (
+            <div className="flex items-center gap-3 p-4 bg-primary/10 border border-primary/30 rounded-lg">
+              <Zap className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Publicar agora</p>
+                <p className="text-xs text-muted-foreground">+1 min para upload seguro</p>
+              </div>
+            </div>
+          )}
+
+          {horarioMode === "manual" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Data</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !data && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR }) : "Selecione uma data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(d) => d && setData(format(d, "yyyy-MM-dd"))}
+                      initialFocus
+                      locale={ptBR}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Horário</Label>
+                <Input
+                  type="time"
+                  value={hora}
+                  onChange={(e) => setHora(e.target.value)}
+                  step={300}
+                  className="text-sm"
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label>Horário</Label>
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              {HORARIOS.map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => setHora(h)}
-                  className={cn(
-                    "py-2 rounded-md text-sm border transition-colors",
-                    hora === h
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+              </div>
+            </div>
+          )}
+
+          {horarioMode === "ia" && (
+            <div className="space-y-3">
+              {iaQ.isLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-3">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Buscando melhores horários...
+                </div>
+              )}
+              {(iaQ.error || (!iaQ.isLoading && iaPeaks.length === 0)) && (
+                <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground">
+                  Insights indisponíveis — use horário manual
+                </div>
+              )}
+              {iaPeaks.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Melhores horários para seus seguidores:</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {iaPeaks.map((p, i) => {
+                      const medal = ["🥇", "🥈", "🥉"][i];
+                      const dow = p.d; // 0=Dom,1=Seg...6=Sáb
+                      const isSelected = hora === String(p.h).padStart(2, "0") + ":00";
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => selectIaPeak(dow, p.h)}
+                          className={cn(
+                            "px-4 py-2 rounded-lg text-sm border transition-colors",
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-card border-border hover:border-primary/50"
+                          )}
+                        >
+                          {medal} {DAYS_PT[dow]} {String(p.h).padStart(2, "0")}h
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {hora && data && (
+                    <p className="text-xs text-muted-foreground">
+                      Agendado para: {format(new Date(`${data}T12:00:00`), "dd/MM", { locale: ptBR })} às {hora}
+                    </p>
                   )}
-                >
-                  {h}
-                </button>
-              ))}
+                </div>
+              )}
             </div>
-            <div className="mt-2">
-              <Input
-                type="time"
-                value={hora}
-                onChange={(e) => setHora(e.target.value)}
-                placeholder="HH:MM"
-                className="text-sm"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">Ou digite um horário personalizado</p>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="flex gap-3 pt-2">
@@ -455,6 +608,26 @@ export function NewPostForm({ initialLegenda = "", editId }: Props) {
         <InstagramPreview tipo={tipo} images={imgs.map((i) => i.preview)} legenda={legenda} hashtags={hashtags} />
       </div>
     </div>
+  );
+}
+
+function ModeTab({
+  active, icon, label, onClick,
+}: {
+  active: boolean; icon: React.ReactNode; label: string; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
