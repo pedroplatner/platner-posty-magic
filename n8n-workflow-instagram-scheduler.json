@@ -35,7 +35,7 @@
       "name": "Resposta Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [640, 160]
+      "position": [640, 140]
     },
     {
       "parameters": {
@@ -57,7 +57,7 @@
       "name": "É Imediato?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [640, 380]
+      "position": [640, 300]
     },
     {
       "parameters": {
@@ -68,17 +68,77 @@
       "name": "Aguarda Horário Agendado",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
-      "position": [860, 480]
+      "position": [860, 420]
     },
     {
       "parameters": {
-        "jsCode": "const {\n  id, tipo_post, legenda, hashtags, imagem_url, video_url,\n  SUPABASE_URL, SUPABASE_KEY, ZERNIO_API_KEY, ZERNIO_ACCOUNT_ID\n} = $input.item.json;\n\n// Marca processando\nawait this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `${SUPABASE_URL}/rest/v1/posts_instagram?id=eq.${id}`,\n  headers: {\n    apikey: SUPABASE_KEY,\n    Authorization: `Bearer ${SUPABASE_KEY}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=minimal'\n  },\n  body: { status: 'processando' },\n  json: true\n});\n\nconst caption = [legenda, hashtags].filter(Boolean).join('\\n\\n');\n\nlet reqBody;\n\nif (tipo_post === 'carrossel') {\n  const midias = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SUPABASE_URL}/rest/v1/post_midias?post_id=eq.${id}&order=ordem.asc`,\n    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },\n    json: true\n  });\n  if (!midias || midias.length < 2) throw new Error(`Carrossel precisa de pelo menos 2 imagens. Encontrado: ${midias?.length ?? 0}`);\n  reqBody = {\n    platforms: [{ platform: 'instagram', accountId: ZERNIO_ACCOUNT_ID }],\n    content: caption,\n    mediaItems: midias.map(m => ({ type: m.tipo || 'image', url: m.imagem_url })),\n    publishNow: true\n  };\n} else {\n  const mediaItems = [];\n  if (tipo_post === 'reel' && video_url) {\n    mediaItems.push({ type: 'video', url: video_url });\n  } else if (imagem_url) {\n    mediaItems.push({ type: 'image', url: imagem_url });\n  }\n  reqBody = {\n    platforms: [{ platform: 'instagram', accountId: ZERNIO_ACCOUNT_ID }],\n    content: caption,\n    publishNow: true,\n    ...(tipo_post === 'story' ? { postType: 'story' } : {}),\n    ...(tipo_post === 'reel' ? { postType: 'reel' } : {}),\n    ...(mediaItems.length > 0 ? { mediaItems } : {})\n  };\n}\n\nconst res = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://zernio.com/api/v1/posts',\n  headers: { 'Authorization': `Bearer ${ZERNIO_API_KEY}`, 'Content-Type': 'application/json' },\n  body: reqBody,\n  json: true\n});\n\nif (res.error) throw new Error(`Zernio erro: ${JSON.stringify(res)}`);\n\n// Marca publicado\nawait this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `${SUPABASE_URL}/rest/v1/posts_instagram?id=eq.${id}`,\n  headers: {\n    apikey: SUPABASE_KEY,\n    Authorization: `Bearer ${SUPABASE_KEY}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=minimal'\n  },\n  body: {\n    status: 'publicado',\n    instagram_media_id: res.id || res.postId || '',\n    publicado_em: new Date().toISOString(),\n    erro_msg: null\n  },\n  json: true\n});\n\nreturn [{ json: { success: true, post_id: id, media_id: res.id || res.postId } }];"
+        "jsCode": "const { id, SUPABASE_URL, SUPABASE_KEY } = $input.item.json;\n\nawait this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `${SUPABASE_URL}/rest/v1/posts_instagram?id=eq.${id}`,\n  headers: {\n    apikey: SUPABASE_KEY,\n    Authorization: `Bearer ${SUPABASE_KEY}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=minimal'\n  },\n  body: { status: 'processando' },\n  json: true\n});\n\nreturn [{ json: $input.item.json }];"
       },
-      "id": "publica-post",
-      "name": "Publica Post",
+      "id": "marca-processando",
+      "name": "Marca Processando",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1080, 380]
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-tipo",
+              "leftValue": "={{ $json.tipo_post }}",
+              "rightValue": "carrossel",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e-carrossel",
+      "name": "É Carrossel?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const {\n  id, ZERNIO_API_KEY, ZERNIO_ACCOUNT_ID,\n  legenda, hashtags, SUPABASE_URL, SUPABASE_KEY\n} = $input.item.json;\n\nconst midias = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${SUPABASE_URL}/rest/v1/post_midias?post_id=eq.${id}&order=ordem.asc`,\n  headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },\n  json: true\n});\n\nif (!midias || midias.length < 2) {\n  throw new Error(`Carrossel precisa de pelo menos 2 imagens. Encontrado: ${midias?.length ?? 0}`);\n}\n\nconst caption = [legenda, hashtags].filter(Boolean).join('\\n\\n');\n\nconst res = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://zernio.com/api/v1/posts',\n  headers: { 'Authorization': `Bearer ${ZERNIO_API_KEY}`, 'Content-Type': 'application/json' },\n  body: {\n    platforms: [{ platform: 'instagram', accountId: ZERNIO_ACCOUNT_ID }],\n    content: caption,\n    mediaItems: midias.map(m => ({ type: m.tipo || 'image', url: m.imagem_url })),\n    publishNow: true\n  },\n  json: true\n});\n\nif (res.error) throw new Error(`Zernio carrossel erro: ${JSON.stringify(res)}`);\n\nreturn [{ json: { ...($input.item.json), media_id: res.id || res.postId || '' } }];"
+      },
+      "id": "publica-carrossel",
+      "name": "Publica Carrossel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const {\n  ZERNIO_API_KEY, ZERNIO_ACCOUNT_ID,\n  imagem_url, video_url, legenda, hashtags, tipo_post\n} = $input.item.json;\n\nconst caption = [legenda, hashtags].filter(Boolean).join('\\n\\n');\n\nconst mediaItems = [];\nif (tipo_post === 'reel' && video_url) {\n  mediaItems.push({ type: 'video', url: video_url });\n} else if (imagem_url) {\n  mediaItems.push({ type: 'image', url: imagem_url });\n}\n\nconst res = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://zernio.com/api/v1/posts',\n  headers: { 'Authorization': `Bearer ${ZERNIO_API_KEY}`, 'Content-Type': 'application/json' },\n  body: {\n    platforms: [{ platform: 'instagram', accountId: ZERNIO_ACCOUNT_ID }],\n    content: caption,\n    publishNow: true,\n    ...(tipo_post === 'story' ? { postType: 'story' } : {}),\n    ...(tipo_post === 'reel' ? { postType: 'reel' } : {}),\n    ...(mediaItems.length > 0 ? { mediaItems } : {})\n  },\n  json: true\n});\n\nif (res.error) throw new Error(`Zernio erro: ${JSON.stringify(res)}`);\n\nreturn [{ json: { ...($input.item.json), media_id: res.id || res.postId || '' } }];"
+      },
+      "id": "publica-feed-story-reel",
+      "name": "Publica Feed/Story/Reel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { id, media_id, SUPABASE_URL, SUPABASE_KEY } = $input.item.json;\n\nawait this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `${SUPABASE_URL}/rest/v1/posts_instagram?id=eq.${id}`,\n  headers: {\n    apikey: SUPABASE_KEY,\n    Authorization: `Bearer ${SUPABASE_KEY}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=minimal'\n  },\n  body: {\n    status: 'publicado',\n    instagram_media_id: media_id,\n    publicado_em: new Date().toISOString(),\n    erro_msg: null\n  },\n  json: true\n});\n\nreturn [{ json: { success: true, post_id: id, media_id } }];"
+      },
+      "id": "atualiza-publicado",
+      "name": "Atualiza → Publicado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 300]
+    },
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [200, 600]
     },
     {
       "parameters": {
@@ -88,15 +148,7 @@
       "name": "Handler Erro",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [860, 680]
-    },
-    {
-      "parameters": {},
-      "id": "error-trigger",
-      "name": "Error Trigger",
-      "type": "n8n-nodes-base.errorTrigger",
-      "typeVersion": 1,
-      "position": [640, 680]
+      "position": [420, 600]
     }
   ],
   "connections": {
@@ -111,12 +163,27 @@
     },
     "É Imediato?": {
       "main": [
-        [{ "node": "Publica Post", "type": "main", "index": 0 }],
+        [{ "node": "Marca Processando", "type": "main", "index": 0 }],
         [{ "node": "Aguarda Horário Agendado", "type": "main", "index": 0 }]
       ]
     },
     "Aguarda Horário Agendado": {
-      "main": [[{ "node": "Publica Post", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Marca Processando", "type": "main", "index": 0 }]]
+    },
+    "Marca Processando": {
+      "main": [[{ "node": "É Carrossel?", "type": "main", "index": 0 }]]
+    },
+    "É Carrossel?": {
+      "main": [
+        [{ "node": "Publica Carrossel", "type": "main", "index": 0 }],
+        [{ "node": "Publica Feed/Story/Reel", "type": "main", "index": 0 }]
+      ]
+    },
+    "Publica Carrossel": {
+      "main": [[{ "node": "Atualiza → Publicado", "type": "main", "index": 0 }]]
+    },
+    "Publica Feed/Story/Reel": {
+      "main": [[{ "node": "Atualiza → Publicado", "type": "main", "index": 0 }]]
     },
     "Error Trigger": {
       "main": [[{ "node": "Handler Erro", "type": "main", "index": 0 }]]
