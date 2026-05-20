@@ -4,12 +4,15 @@ export type InsightsEndpoint = "profile" | "insights" | "media" | "media_insight
 
 type MetaApiError = { message?: string; code?: number; error_subcode?: number };
 
-const META_PERMISSION_RE = /pages_read_engagement|pages_manage_metadata|pages_read_user_content|pages_manage_ads|pages_show_list|pages_messaging|permission\(s\) must be granted|impersonating a user's page/i;
+const META_PERMISSION_RE =
+  /pages_read_engagement|pages_manage_metadata|pages_read_user_content|pages_manage_ads|pages_show_list|pages_messaging|permission\(s\) must be granted|impersonating a user's page/i;
 
 export function isInstagramAuthError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    (/token|expired|invalid|190|OAuthException|META_TOKEN_EXPIRED|META_PERMISSION_ERROR/i.test(error.message) ||
+    (/token|expired|invalid|190|OAuthException|META_TOKEN_EXPIRED|META_PERMISSION_ERROR/i.test(
+      error.message,
+    ) ||
       META_PERMISSION_RE.test(error.message))
   );
 }

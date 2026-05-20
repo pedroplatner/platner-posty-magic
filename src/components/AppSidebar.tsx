@@ -1,5 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Calendar, PlusSquare, ListOrdered, History, BarChart3, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import {
+  LayoutDashboard,
+  Calendar,
+  PlusSquare,
+  ListOrdered,
+  History,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth, signOut } from "@/lib/auth";
@@ -38,20 +48,35 @@ export function AppSidebar() {
     <aside
       className={cn(
         "shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col transition-[width] duration-200 sticky top-0 h-screen overflow-y-auto",
-        collapsed ? "w-16" : "w-60"
+        collapsed ? "w-16" : "w-60",
       )}
     >
-      <div className={cn("py-6 border-b border-sidebar-border flex items-center", collapsed ? "px-3 justify-center" : "px-6")}>
+      <div
+        className={cn(
+          "py-6 border-b border-sidebar-border flex items-center",
+          collapsed ? "px-3 justify-center" : "px-6",
+        )}
+      >
         <div className="flex items-center gap-2 min-w-0">
           {pic ? (
-            <img src={pic} alt="PlatnerSystem" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+            <img
+              src={pic}
+              alt="PlatnerSystem"
+              className="h-9 w-9 shrink-0 rounded-lg object-cover"
+            />
           ) : (
-            <div className="h-9 w-9 shrink-0 rounded-lg bg-primary flex items-center justify-center font-display font-bold text-primary-foreground">P</div>
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-primary flex items-center justify-center font-display font-bold text-primary-foreground">
+              P
+            </div>
           )}
           {!collapsed && (
             <div className="min-w-0">
-              <div className="font-display font-semibold text-base leading-tight truncate">PlatnerSystem</div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Scheduler</div>
+              <div className="font-display font-semibold text-base leading-tight truncate">
+                PlatnerSystem
+              </div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Scheduler
+              </div>
             </div>
           )}
         </div>
@@ -71,7 +96,7 @@ export function AppSidebar() {
                 collapsed && "justify-center",
                 active
                   ? "bg-primary text-primary-foreground font-medium"
-                  : "text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground",
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -80,7 +105,7 @@ export function AppSidebar() {
                 <span
                   className={cn(
                     "min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center",
-                    collapsed && "absolute top-1 right-1"
+                    collapsed && "absolute top-1 right-1",
                   )}
                   title={`${errorCount} post(s) com erro`}
                 >
@@ -96,7 +121,13 @@ export function AppSidebar() {
         className="m-3 h-9 rounded-lg border border-sidebar-border text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground flex items-center justify-center gap-2 text-xs transition-colors"
         title={collapsed ? "Expandir menu" : "Minimizar menu"}
       >
-        {collapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4" /> Minimizar</>}
+        {collapsed ? (
+          <ChevronRight className="h-4 w-4" />
+        ) : (
+          <>
+            <ChevronLeft className="h-4 w-4" /> Minimizar
+          </>
+        )}
       </button>
       <button
         onClick={handleLogout}
@@ -109,7 +140,9 @@ export function AppSidebar() {
         {!collapsed && "Sair"}
       </button>
       {!collapsed && user?.email && (
-        <div className="px-4 pb-4 text-xs text-muted-foreground truncate" title={user.email}>{user.email}</div>
+        <div className="px-4 pb-4 text-xs text-muted-foreground truncate" title={user.email}>
+          {user.email}
+        </div>
       )}
     </aside>
   );
