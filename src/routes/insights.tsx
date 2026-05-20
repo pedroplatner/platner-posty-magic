@@ -174,16 +174,19 @@ function RangeSelector({
 }
 
 function ErrorBanner({ message }: { message: string }) {
-  const isAuth = /token|expired|invalid|190/i.test(message);
+  const isPermission = /META_PERMISSION_ERROR|pages_read_engagement|pages_manage_metadata|pages_show_list|permission/i.test(message);
+  const isAuth = isPermission || /token|expired|invalid|190|OAuthException/i.test(message);
   return (
     <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
       <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
       <div className="text-sm">
         <p className="font-medium text-destructive">
-          {isAuth ? "Token do Instagram expirado" : "Erro ao carregar Insights"}
+          {isPermission ? "Permissões do Instagram incompletas" : isAuth ? "Token do Instagram expirado" : "Erro ao carregar Insights"}
         </p>
         <p className="text-muted-foreground text-xs mt-1">
-          {isAuth
+          {isPermission
+            ? "O workflow está ativo, mas a Meta recusou os Insights porque o token não tem permissão para ler a Página. Gere um novo token com pages_read_engagement, pages_show_list e instagram_manage_insights, atualize META_PAGE_ACCESS_TOKEN e recarregue."
+            : isAuth
             ? "Atualize o segredo META_PAGE_ACCESS_TOKEN com um novo token da Meta para voltar a carregar os dados."
             : message}
         </p>
