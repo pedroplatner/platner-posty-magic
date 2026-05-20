@@ -4,14 +4,26 @@ export type InsightsEndpoint = "profile" | "insights" | "media" | "media_insight
 
 type MetaApiError = { message?: string; code?: number; error_subcode?: number };
 
+const META_PERMISSION_RE =
+  /pages_read_engagement|pages_manage_metadata|pages_read_user_content|pages_manage_ads|pages_show_list|pages_messaging|permission\(s\) must be granted|impersonating a user's page/i;
+
 export function isInstagramAuthError(error: unknown): boolean {
   return (
-    error instanceof Error && /token|expired|invalid|190|META_TOKEN_EXPIRED/i.test(error.message)
+    error instanceof Error &&
+    (/token|expired|invalid|190|OAuthException|META_TOKEN_EXPIRED|META_PERMISSION_ERROR/i.test(
+      error.message,
+    ) ||
+      META_PERMISSION_RE.test(error.message))
   );
 }
 
 function normalizeInsightsError(error: MetaApiError | undefined, fallback: string): Error {
   const message = error?.message || fallback || "Erro ao chamar Instagram";
+  if (META_PERMISSION_RE.test(message)) {
+    return new Error(
+      "META_PERMISSION_ERROR: O token atual do Instagram não tem permissão para ler a Página. Gere um novo token da Meta com pages_read_engagement, pages_show_list e instagram_manage_insights, atualize o segredo META_PAGE_ACCESS_TOKEN e recarregue a página.",
+    );
+  }
   if (error?.code === 190 || /access token|session has expired|token/i.test(message)) {
     return new Error(
       "META_TOKEN_EXPIRED: O token de acesso do Instagram expirou. Atualize o segredo META_PAGE_ACCESS_TOKEN com um novo token da Meta e recarregue a página.",

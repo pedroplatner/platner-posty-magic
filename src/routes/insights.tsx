@@ -6,15 +6,38 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import {
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Area,
+  AreaChart,
 } from "recharts";
 import {
-  Eye, Users, UserCheck, ExternalLink, TrendingUp, TrendingDown,
-  Heart, MessageCircle, Bookmark, BarChart3, Trophy, AlertTriangle, Loader2, CalendarIcon,
+  Eye,
+  Users,
+  UserCheck,
+  ExternalLink,
+  TrendingUp,
+  TrendingDown,
+  Heart,
+  MessageCircle,
+  Bookmark,
+  BarChart3,
+  Trophy,
+  AlertTriangle,
+  Loader2,
+  CalendarIcon,
 } from "lucide-react";
 import {
-  callInsights, isInstagramAuthError, unixSecondsAgo,
-  type IGProfile, type IGInsightsResponse, type IGMediaResponse, type IGMediaInsights,
+  callInsights,
+  isInstagramAuthError,
+  unixSecondsAgo,
+  type IGProfile,
+  type IGInsightsResponse,
+  type IGMediaResponse,
+  type IGMediaInsights,
 } from "@/lib/insights";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
@@ -67,7 +90,10 @@ function InsightsPage() {
         </div>
         <RangeSelector
           preset={preset}
-          onPresetChange={(v) => { setPreset(v); setCustomRange(null); }}
+          onPresetChange={(v) => {
+            setPreset(v);
+            setCustomRange(null);
+          }}
           customRange={customRange}
           onCustomChange={setCustomRange}
         />
@@ -91,7 +117,10 @@ function InsightsPage() {
 
 /* ---------------- Range selector com calendário ---------------- */
 function RangeSelector({
-  preset, onPresetChange, customRange, onCustomChange,
+  preset,
+  onPresetChange,
+  customRange,
+  onCustomChange,
 }: {
   preset: RangePreset;
   onPresetChange: (v: RangePreset) => void;
@@ -103,21 +132,25 @@ function RangeSelector({
   const [open, setOpen] = useState(false);
   const isCustom = !!(customRange?.from && customRange?.to);
 
-  const customLabel = isCustom && customRange?.from && customRange?.to
-    ? `${format(customRange.from, "dd/MM", { locale: ptBR })} – ${format(customRange.to, "dd/MM", { locale: ptBR })}`
-    : "Personalizado";
+  const customLabel =
+    isCustom && customRange?.from && customRange?.to
+      ? `${format(customRange.from, "dd/MM", { locale: ptBR })} – ${format(customRange.to, "dd/MM", { locale: ptBR })}`
+      : "Personalizado";
 
   return (
     <div className="inline-flex rounded-lg border border-border bg-card p-1 gap-0.5 flex-wrap">
       {opts.map((d) => (
         <button
           key={d}
-          onClick={() => { onPresetChange(d); onCustomChange(null); }}
+          onClick={() => {
+            onPresetChange(d);
+            onCustomChange(null);
+          }}
           className={cn(
             "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
             !isCustom && preset === d
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {d} dias
@@ -130,7 +163,7 @@ function RangeSelector({
               "px-3 py-1.5 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1",
               isCustom
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <CalendarIcon className="h-3 w-3" />
@@ -149,7 +182,11 @@ function RangeSelector({
           />
           <div className="flex justify-end gap-2 p-3 border-t border-border">
             <button
-              onClick={() => { setCalRange(undefined); onCustomChange(null); setOpen(false); }}
+              onClick={() => {
+                setCalRange(undefined);
+                onCustomChange(null);
+                setOpen(false);
+              }}
               className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
             >
               Limpar
@@ -174,18 +211,28 @@ function RangeSelector({
 }
 
 function ErrorBanner({ message }: { message: string }) {
-  const isAuth = /token|expired|invalid|190/i.test(message);
+  const isPermission =
+    /META_PERMISSION_ERROR|pages_read_engagement|pages_manage_metadata|pages_show_list|permission/i.test(
+      message,
+    );
+  const isAuth = isPermission || /token|expired|invalid|190|OAuthException/i.test(message);
   return (
     <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
       <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
       <div className="text-sm">
         <p className="font-medium text-destructive">
-          {isAuth ? "Token do Instagram expirado" : "Erro ao carregar Insights"}
+          {isPermission
+            ? "Permissões do Instagram incompletas"
+            : isAuth
+              ? "Token do Instagram expirado"
+              : "Erro ao carregar Insights"}
         </p>
         <p className="text-muted-foreground text-xs mt-1">
-          {isAuth
-            ? "Atualize o segredo META_PAGE_ACCESS_TOKEN com um novo token da Meta para voltar a carregar os dados."
-            : message}
+          {isPermission
+            ? "O workflow está ativo, mas a Meta recusou os Insights porque o token não tem permissão para ler a Página. Gere um novo token com pages_read_engagement, pages_show_list e instagram_manage_insights, atualize META_PAGE_ACCESS_TOKEN e recarregue."
+            : isAuth
+              ? "Atualize o segredo META_PAGE_ACCESS_TOKEN com um novo token da Meta para voltar a carregar os dados."
+              : message}
         </p>
       </div>
     </div>
@@ -203,7 +250,9 @@ function ProfileHeader({ q }: { q: ReturnType<typeof useQuery<IGProfile>> }) {
           <Skeleton className="h-3 w-24" />
         </div>
         <div className="flex gap-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-24 rounded-lg" />)}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-24 rounded-lg" />
+          ))}
         </div>
       </section>
     );
@@ -217,7 +266,9 @@ function ProfileHeader({ q }: { q: ReturnType<typeof useQuery<IGProfile>> }) {
         alt={p.username}
         className="h-20 w-20 rounded-full object-cover ring-2 ring-primary/30"
         loading="lazy"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
       />
       <div className="flex-1 min-w-[150px]">
         <h2 className="font-display text-xl font-semibold">{p.name}</h2>
@@ -247,7 +298,10 @@ function FollowersChart({ since, until, days }: { since: number; until: number; 
     queryKey: ["ig", "follower_count", since, until],
     queryFn: () =>
       callInsights<IGInsightsResponse>("insights", {
-        metric: "follower_count", period: "day", since, until,
+        metric: "follower_count",
+        period: "day",
+        since,
+        until,
       }),
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -256,7 +310,9 @@ function FollowersChart({ since, until, days }: { since: number; until: number; 
   const series = useMemo(() => {
     const values = q.data?.data?.[0]?.values ?? [];
     return values.map((v) => ({
-      date: v.end_time ? new Date(v.end_time).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "",
+      date: v.end_time
+        ? new Date(v.end_time).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+        : "",
       novos: v.value,
     }));
   }, [q.data]);
@@ -268,11 +324,15 @@ function FollowersChart({ since, until, days }: { since: number; until: number; 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h2 className="font-display text-lg font-semibold">Crescimento de Seguidores</h2>
-          <p className="text-xs text-muted-foreground">Novos seguidores por dia — últimos {days} dias</p>
+          <p className="text-xs text-muted-foreground">
+            Novos seguidores por dia — últimos {days} dias
+          </p>
         </div>
         <div className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-2">
           <p className="text-[10px] uppercase tracking-wider text-primary">Novos no período</p>
-          <p className="text-lg font-display font-semibold text-primary">+{total.toLocaleString("pt-BR")}</p>
+          <p className="text-lg font-display font-semibold text-primary">
+            +{total.toLocaleString("pt-BR")}
+          </p>
         </div>
       </div>
       {q.isLoading ? (
@@ -292,13 +352,34 @@ function FollowersChart({ since, until, days }: { since: number; until: number; 
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-              <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="date"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
               <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
                 labelStyle={{ color: "hsl(var(--muted-foreground))" }}
               />
-              <Area type="monotone" dataKey="novos" stroke="#F97316" strokeWidth={2} fill="url(#gFollowers)" />
+              <Area
+                type="monotone"
+                dataKey="novos"
+                stroke="#F97316"
+                strokeWidth={2}
+                fill="url(#gFollowers)"
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -326,16 +407,32 @@ function ReachCards({ since, until }: { since: number; until: number }) {
     queryFn: async () => {
       const [reach, views, prevReach, prevViews] = await Promise.allSettled([
         callInsights<IGInsightsResponse>("insights", {
-          metric: "reach", period: "day", since, until, metric_type: "total_value",
+          metric: "reach",
+          period: "day",
+          since,
+          until,
+          metric_type: "total_value",
         }),
         callInsights<IGInsightsResponse>("insights", {
-          metric: "profile_views,website_clicks,accounts_engaged", period: "day", since, until, metric_type: "total_value",
+          metric: "profile_views,website_clicks,accounts_engaged",
+          period: "day",
+          since,
+          until,
+          metric_type: "total_value",
         }),
         callInsights<IGInsightsResponse>("insights", {
-          metric: "reach", period: "day", since: prevSince, until: prevUntil, metric_type: "total_value",
+          metric: "reach",
+          period: "day",
+          since: prevSince,
+          until: prevUntil,
+          metric_type: "total_value",
         }),
         callInsights<IGInsightsResponse>("insights", {
-          metric: "profile_views,website_clicks,accounts_engaged", period: "day", since: prevSince, until: prevUntil, metric_type: "total_value",
+          metric: "profile_views,website_clicks,accounts_engaged",
+          period: "day",
+          since: prevSince,
+          until: prevUntil,
+          metric_type: "total_value",
         }),
       ]);
       return {
@@ -389,8 +486,18 @@ function ReachCards({ since, until }: { since: number; until: number }) {
 }
 
 function MetricCard({
-  label, icon: Icon, value, change, loading,
-}: { label: string; icon: typeof Eye; value: number | null; change: number | null; loading: boolean }) {
+  label,
+  icon: Icon,
+  value,
+  change,
+  loading,
+}: {
+  label: string;
+  icon: typeof Eye;
+  value: number | null;
+  change: number | null;
+  loading: boolean;
+}) {
   return (
     <div className="bg-card border border-border rounded-xl p-5">
       <div className="h-9 w-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center mb-3">
@@ -406,13 +513,17 @@ function MetricCard({
       <div className="flex items-center justify-between mt-1 gap-1">
         <p className="text-xs text-muted-foreground">{label}</p>
         {!loading && change !== null && (
-          <span className={cn(
-            "text-xs font-medium flex items-center gap-0.5 shrink-0",
-            change >= 0 ? "text-green-500" : "text-red-500"
-          )}>
-            {change >= 0
-              ? <TrendingUp className="h-3 w-3" />
-              : <TrendingDown className="h-3 w-3" />}
+          <span
+            className={cn(
+              "text-xs font-medium flex items-center gap-0.5 shrink-0",
+              change >= 0 ? "text-green-500" : "text-red-500",
+            )}
+          >
+            {change >= 0 ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
             {Math.abs(change)}%
           </span>
         )}
@@ -441,7 +552,11 @@ function TopPostsAndGrid() {
   const insightsQs = useQueries({
     queries: mediaList.map((m) => ({
       queryKey: ["ig", "media-insights", m.id],
-      queryFn: () => callInsights<IGMediaInsights>("media_insights", { media_id: m.id, media_type: m.media_type }),
+      queryFn: () =>
+        callInsights<IGMediaInsights>("media_insights", {
+          media_id: m.id,
+          media_type: m.media_type,
+        }),
       staleTime: 10 * 60 * 1000,
       retry: 0,
     })),
@@ -476,7 +591,9 @@ function TopPostsAndGrid() {
         </h2>
         {isLoading ? (
           <div className="grid md:grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-40 rounded-xl" />
+            ))}
           </div>
         ) : top3.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem posts para ranquear.</p>
@@ -487,17 +604,24 @@ function TopPostsAndGrid() {
                 key={p.id}
                 className={cn(
                   "bg-card border rounded-xl p-4 flex gap-3",
-                  i === 0 ? "border-primary/60 ring-1 ring-primary/30" : "border-border"
+                  i === 0 ? "border-primary/60 ring-1 ring-primary/30" : "border-border",
                 )}
               >
                 <div className="relative h-20 w-20 rounded-lg overflow-hidden bg-muted shrink-0">
-                  <img src={p.thumbnail_url || p.media_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <img
+                    src={p.thumbnail_url || p.media_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
                   <span className="absolute -top-1 -left-1 text-2xl">
                     {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-muted-foreground">{formatBR(p.timestamp, "dd/MM")}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {formatBR(p.timestamp, "dd/MM")}
+                  </p>
                   <p className="text-xs mt-1 line-clamp-2">{truncate(p.caption, 80)}</p>
                   <p className="text-sm font-semibold text-primary mt-2">
                     {p.interactions.toLocaleString("pt-BR")} interações
@@ -517,7 +641,9 @@ function TopPostsAndGrid() {
         </div>
         {isLoading ? (
           <div className="grid md:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-72 rounded-xl" />
+            ))}
           </div>
         ) : mediaQ.error ? (
           <ErrorBanner message={(mediaQ.error as Error).message} />
@@ -525,9 +651,17 @@ function TopPostsAndGrid() {
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {enriched.map((p) => (
-                <article key={p.id} className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+                <article
+                  key={p.id}
+                  className="bg-card border border-border rounded-xl overflow-hidden flex flex-col"
+                >
                   <div className="aspect-square bg-muted overflow-hidden">
-                    <img src={p.thumbnail_url || p.media_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    <img
+                      src={p.thumbnail_url || p.media_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                   </div>
                   <div className="p-4 flex-1 flex flex-col">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
@@ -536,7 +670,10 @@ function TopPostsAndGrid() {
                     <p className="text-sm mt-2 line-clamp-2 flex-1">{truncate(p.caption, 110)}</p>
                     <div className="grid grid-cols-4 gap-2 mt-3 text-xs text-muted-foreground">
                       <Stat icon={<Heart className="h-3 w-3" />} value={p.like_count ?? 0} />
-                      <Stat icon={<MessageCircle className="h-3 w-3" />} value={p.comments_count ?? 0} />
+                      <Stat
+                        icon={<MessageCircle className="h-3 w-3" />}
+                        value={p.comments_count ?? 0}
+                      />
                       <Stat icon={<Eye className="h-3 w-3" />} value={p.views || p.reach} />
                       <Stat icon={<Bookmark className="h-3 w-3" />} value={p.saved} />
                     </div>
@@ -574,14 +711,23 @@ function Stat({ icon, value }: { icon: React.ReactNode; value: number }) {
 
 /* ---------------- Section 5: Best time heatmap ---------------- */
 const DAYS_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-const DAY_MAP: Record<string, number> = { MONDAY: 0, TUESDAY: 1, WEDNESDAY: 2, THURSDAY: 3, FRIDAY: 4, SATURDAY: 5, SUNDAY: 6 };
+const DAY_MAP: Record<string, number> = {
+  MONDAY: 0,
+  TUESDAY: 1,
+  WEDNESDAY: 2,
+  THURSDAY: 3,
+  FRIDAY: 4,
+  SATURDAY: 5,
+  SUNDAY: 6,
+};
 
 function BestTimeHeatmap() {
   const q = useQuery({
     queryKey: ["ig", "online_followers"],
     queryFn: () =>
       callInsights<IGInsightsResponse>("insights", {
-        metric: "online_followers", period: "lifetime",
+        metric: "online_followers",
+        period: "lifetime",
       }),
     staleTime: 30 * 60 * 1000,
     retry: 0,
@@ -651,7 +797,9 @@ function BestTimeHeatmap() {
               <div className="grid grid-cols-[40px_repeat(24,minmax(20px,1fr))] gap-px text-[10px]">
                 <div />
                 {Array.from({ length: 24 }).map((_, h) => (
-                  <div key={h} className="text-center text-muted-foreground">{h % 3 === 0 ? h : ""}</div>
+                  <div key={h} className="text-center text-muted-foreground">
+                    {h % 3 === 0 ? h : ""}
+                  </div>
                 ))}
                 {matrix.map((row, d) => (
                   <FragmentRow key={`row-${d}`} d={d} row={row} max={max} />
@@ -663,7 +811,10 @@ function BestTimeHeatmap() {
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
               <span className="text-muted-foreground">Picos:</span>
               {peaks.map((p, i) => (
-                <span key={i} className="px-2 py-1 rounded-md bg-primary/15 text-primary font-medium">
+                <span
+                  key={i}
+                  className="px-2 py-1 rounded-md bg-primary/15 text-primary font-medium"
+                >
                   {DAYS_PT[p.d]} {p.h}h
                 </span>
               ))}
@@ -695,7 +846,12 @@ function FragmentRow({ d, row, max }: { d: number; row: number[]; max: number })
 }
 
 /* ---------------- Section: Daily breakdown (comparação dia a dia) ---------------- */
-type DailyMetricKey = "profile_views" | "website_clicks" | "accounts_engaged" | "reach" | "follower_count";
+type DailyMetricKey =
+  | "profile_views"
+  | "website_clicks"
+  | "accounts_engaged"
+  | "reach"
+  | "follower_count";
 
 const DAILY_METRICS: Array<{ key: DailyMetricKey; label: string; short: string }> = [
   { key: "profile_views", label: "Visitas ao Perfil", short: "Perfil" },
@@ -807,7 +963,8 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
       const get = (m: string) => {
         const found = all.find((x) => x.name === m);
         if (!found) return 0;
-        if (found.total_value && typeof found.total_value.value === "number") return found.total_value.value;
+        if (found.total_value && typeof found.total_value.value === "number")
+          return found.total_value.value;
         return (found.values ?? []).reduce((s, v) => s + (v.value || 0), 0);
       };
       return {
@@ -827,7 +984,10 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
 
   const chartData = useMemo(() => {
     return [...rows].reverse().map((r) => ({
-      date: new Date(r.dateISO + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      date: new Date(r.dateISO + "T12:00:00Z").toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
       value: r[active],
     }));
   }, [rows, active]);
@@ -837,7 +997,8 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
   const todayVal = today?.[active] ?? 0;
   const yesterdayVal = yesterday?.[active] ?? 0;
   const diff = (todayVal as number) - (yesterdayVal as number);
-  const diffPct = (yesterdayVal as number) > 0 ? Math.round((diff / (yesterdayVal as number)) * 100) : null;
+  const diffPct =
+    (yesterdayVal as number) > 0 ? Math.round((diff / (yesterdayVal as number)) * 100) : null;
 
   const activeMeta = DAILY_METRICS.find((m) => m.key === active)!;
 
@@ -846,14 +1007,20 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <h2 className="font-display text-lg font-semibold">Evolução diária</h2>
-          <p className="text-xs text-muted-foreground">Compare cada dia com o anterior — últimos {nDays} dias</p>
+          <p className="text-xs text-muted-foreground">
+            Compare cada dia com o anterior — últimos {nDays} dias
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5 flex-wrap">
             {DAILY_RANGE_OPTS.map((o) => (
               <button
                 key={o.value}
-                onClick={() => { setRangeDays(o.value); setCustomRange(null); setCalRange(undefined); }}
+                onClick={() => {
+                  setRangeDays(o.value);
+                  setCustomRange(null);
+                  setCalRange(undefined);
+                }}
                 className={cn(
                   "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
                   !isCustom && rangeDays === o.value
@@ -892,7 +1059,11 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
                 />
                 <div className="flex justify-end gap-2 p-3 border-t border-border">
                   <button
-                    onClick={() => { setCalRange(undefined); setCustomRange(null); setCalOpen(false); }}
+                    onClick={() => {
+                      setCalRange(undefined);
+                      setCustomRange(null);
+                      setCalOpen(false);
+                    }}
                     className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
                   >
                     Limpar
@@ -914,12 +1085,25 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
             </Popover>
           </div>
           <div className="rounded-lg bg-primary/10 border border-primary/30 px-3 py-1.5 text-right">
-            <p className="text-[10px] uppercase tracking-wider text-primary leading-tight">Hoje vs Ontem</p>
+            <p className="text-[10px] uppercase tracking-wider text-primary leading-tight">
+              Hoje vs Ontem
+            </p>
             <div className="flex items-center gap-2 justify-end">
-              <p className="text-base font-display font-semibold text-primary leading-tight">{(todayVal as number).toLocaleString("pt-BR")}</p>
+              <p className="text-base font-display font-semibold text-primary leading-tight">
+                {(todayVal as number).toLocaleString("pt-BR")}
+              </p>
               {diffPct !== null && (
-                <span className={cn("text-xs font-medium flex items-center gap-0.5", diff >= 0 ? "text-green-500" : "text-red-500")}>
-                  {diff >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                <span
+                  className={cn(
+                    "text-xs font-medium flex items-center gap-0.5",
+                    diff >= 0 ? "text-green-500" : "text-red-500",
+                  )}
+                >
+                  {diff >= 0 ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
                   {Math.abs(diffPct)}%
                 </span>
               )}
@@ -962,13 +1146,34 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-              <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="date"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+              />
               <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
                 labelStyle={{ color: "hsl(var(--muted-foreground))" }}
               />
-              <Area type="monotone" dataKey="value" stroke="#F97316" strokeWidth={2} fill="url(#gDaily)" />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#F97316"
+                strokeWidth={2}
+                fill="url(#gDaily)"
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -989,31 +1194,65 @@ function DailyBreakdown({ days: _days, until }: { days: number; until: number })
               const curr = r[active] as number;
               const prevV = prev ? (prev[active] as number) : null;
               const d = prevV !== null ? curr - prevV : null;
-              const dp = prevV !== null && prevV > 0 ? Math.round(((curr - prevV) / prevV) * 100) : null;
+              const dp =
+                prevV !== null && prevV > 0 ? Math.round(((curr - prevV) / prevV) * 100) : null;
               const dateLabel = new Date(r.dateISO + "T12:00:00Z").toLocaleDateString("pt-BR", {
-                weekday: "short", day: "2-digit", month: "2-digit",
+                weekday: "short",
+                day: "2-digit",
+                month: "2-digit",
               });
               return (
-                <tr key={r.dateISO} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
+                <tr
+                  key={r.dateISO}
+                  className="border-b border-border/40 last:border-0 hover:bg-muted/30"
+                >
                   <td className="py-2 px-2">
                     <span className="capitalize">{dateLabel}</span>
-                    {r.isToday && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">parcial</span>}
-                    {i === 1 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">ontem</span>}
+                    {r.isToday && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                        parcial
+                      </span>
+                    )}
+                    {i === 1 && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                        ontem
+                      </span>
+                    )}
                   </td>
                   <td className="text-right py-2 px-2 font-medium tabular-nums">
-                    {r.loading ? <Skeleton className="h-4 w-12 ml-auto" /> : curr.toLocaleString("pt-BR")}
+                    {r.loading ? (
+                      <Skeleton className="h-4 w-12 ml-auto" />
+                    ) : (
+                      curr.toLocaleString("pt-BR")
+                    )}
                   </td>
                   <td className="text-right py-2 px-2 tabular-nums">
                     {d === null ? (
                       <span className="text-muted-foreground">—</span>
                     ) : (
-                      <span className={cn(
-                        "inline-flex items-center gap-0.5 text-xs font-medium",
-                        d > 0 ? "text-green-500" : d < 0 ? "text-red-500" : "text-muted-foreground",
-                      )}>
-                        {d > 0 ? <TrendingUp className="h-3 w-3" /> : d < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-                        {d > 0 ? "+" : ""}{d.toLocaleString("pt-BR")}
-                        {dp !== null && <span className="ml-1 opacity-70">({dp > 0 ? "+" : ""}{dp}%)</span>}
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5 text-xs font-medium",
+                          d > 0
+                            ? "text-green-500"
+                            : d < 0
+                              ? "text-red-500"
+                              : "text-muted-foreground",
+                        )}
+                      >
+                        {d > 0 ? (
+                          <TrendingUp className="h-3 w-3" />
+                        ) : d < 0 ? (
+                          <TrendingDown className="h-3 w-3" />
+                        ) : null}
+                        {d > 0 ? "+" : ""}
+                        {d.toLocaleString("pt-BR")}
+                        {dp !== null && (
+                          <span className="ml-1 opacity-70">
+                            ({dp > 0 ? "+" : ""}
+                            {dp}%)
+                          </span>
+                        )}
                       </span>
                     )}
                   </td>
