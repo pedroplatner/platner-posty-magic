@@ -27,6 +27,7 @@ export function AppSidebar() {
     queryFn: () => callInsights<IGProfile>("profile"),
     staleTime: 10 * 60 * 1000,
     retry: 0,
+    enabled: !!user,
   });
   const pic = profileQ.data?.profile_picture_url;
   async function handleLogout() {
